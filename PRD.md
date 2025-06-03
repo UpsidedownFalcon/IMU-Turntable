@@ -7,10 +7,10 @@ Contents
 1. [Rationale](#1-rationale)
 2. [Design Brief](#2-design-brief)
 3. [Existing Product Analysis](#3-existing-product-analysis) 
-4. [Design Specification ](#4-design-specification)
+4. [Design Specification ](#4-initial-design-specification)
 5. [Initial Design Ideas](#5-initial-design-ideas)
 6. [Final Design](#6-final-design)
-7. [Manufacturing](#7-manufacturing)
+7. [Manufacturing](#7-manufacturing) 
 
 ## 1. Rationale 
 Inertial Measurement Units (IMU sensors) widely used in wearable technologies. [Hippos Exoskeleton Incorporated](https://www.hippos.life/) are using IMU sensors in their world's first Smart Adaptive Knee Brace to prevent serious knee injuries such as ACL tears. 
@@ -49,14 +49,32 @@ The open-source hardware and software platform must:
 ## 4. Design Specification  
 The open-source IMU turntable must: 
 1. 3 degrees of rotational freedom 
-2. Continuous rotation about all three axes 
+2. 360° of rotation about all three axes 
 3. Rotational resolution of at least 0.05625°
 4. **As cheap as possible** 
-5. Planned trajectory control of the turntable 
-6. IMU sensor datalogging 
+5. Variable trajectory control of the turntable 
+6. IMU sensor datalogging at variable frequencies 
 7. Temporal synchronisation of the IMU data and turntable motion 
 
 ## 5. Initial Design Ideas 
+From *Research Proposal.pdf*, the following selections have been made: 
+
+### IMU Sensors: 
+The following IMU sensors were selected due to their variety in sampling frequency specified on their datasheet and due to the support of SPI. 
+
+**SPI will be used** to transfer IMU data to the datalogger as it is the fastest digital communication protocol between I2C and UART. 
+
+| IMU Sensor | Communication Protocol | Sampling Frequency / Hz | Angular Resolution / ° s^{-1} | Bit Depth |
+|------------|------------------------|-------------------------|-----------------------|-----------|
+| Analog Devices ADIS16470 | SPI | 5000 | ±2000 | 16 - 32 bit | 
+| InvenSense ICM-20602 | SPI and I2C | 1 - 32000 | ±2000 | 16 bit | 
+| Bosch BMI088 | SPI and I2C | 2000 | ±2000 | 16 bit |
+| Ceva BNO085 | SPI, I2C and UART | 1000 | ±2000 | 16 bit |
+
+![Initial Sketch 1](Images_MD/Sketches1.jpg) 
+![Initial Sketch 2](Images_MD/Sketches2.jpg)
+
+From the initial design ideas, a direct drive system is the most feasible because *accuracy and precision* are a priority, so **zero backlash** is a necessity. With such a system, the maximum attainable resolution must be further investigated by researching existing rotational actuators e.g stepper motors: **EXISTING PRODUCT ANALYSIS ITERATIOIN II**. 
 
 ## 6. Final Design 
 
