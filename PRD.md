@@ -29,7 +29,7 @@ Please read *Research Proposal.pdf* for a detailed overview.
 This project must produce an open-source and economical method to characterise and validate IMU sensor data against a ground truth, which can be applied across different researchers to consistently compare the accuracy of different IMU sensors at different sampling rates. 
 
 The open-source hardware and software platform must:
-1. Spin IMUs on a motorized 3-DOF jig at controlled trajectories (up to 1 000 Hz).
+1. Spin IMUs on a motorised 3 DOF jig at controlled trajectories. 
 2. Log synchronous IMU and rotary-encoder data.
 3. Compute and report accuracy metrics (RMSE, MAE, drift rates, Allan variance).
 4. Be fully documented (CAD, firmware, analysis scripts) so that other labs can reproduce and compare results.
@@ -89,7 +89,7 @@ Comparing all of the motors against the design brief and specification:
 
 The most feasible motors to use are **stepper motors** because they: 
 - Can rotate to discrete positions which can be sequentially combined to make them follow continuous rotation trajectories very accurately 
-- Have a native angular resolution of 1.8° or 0.9° which can be microstepped up to 1/256 => Hence, a maximum achieveable resolution (with 0.9° native resolutio and 1/256 microstep) is 0.0035° per microstep 
+- Have a native angular resolution of 1.8° or 0.9° which can be microstepped up to 1/256 => Hence, a maximum achieveable resolution (with 0.9° native resolutio and 1/256 microstep) is **0.0035°** per microstep 
 
 Using stepper motors, an open-source IMU turntable can be designed in [Initial Design Ideas: Stepper Motor Design](#stepper-motor-design). 
 </details>
@@ -127,7 +127,7 @@ The following IMU sensors were selected due to their variety in sampling frequen
 ![Initial Sketch 1](Images_MD/Sketches1.jpg) 
 ![Initial Sketch 2](Images_MD/Sketches2.jpg)
 
-From the initial design ideas, a direct drive system is the most feasible because *accuracy and precision* are a priority, so **zero backlash** is a necessity. With such a system, the maximum attainable resolution must be further investigated by researching [existing rotational actuators e.g stepper motors](#rotational-actuators). 
+From the initial design ideas, a direct drive system is the most feasible because *accuracy and precision* are a priority, so **zero backlash** is a necessity. With such a system, the maximum attainable resolution must be further investigated by researching existing rotational actuators e.g stepper motors in [Existing Product Analysis: Rotational Actuators](#rotational-actuators). 
 
 ### Stepper Motor Design
 <details> <summary> Expand </summary>
@@ -135,7 +135,7 @@ Initial design sketch of an open-source IMU turntable actuated using stepper mot
 
 ![Initial Stepper Sketch](Images_MD/StepperTurntable.jpg) 
 The drawback with using such a direct drive system is that the stepper motor at the base will have a greater load than the stepper motor at the top because the mass of the turntable + IMU > mass of IMU. **Next step** is to figure out which specific stepper motors to use - for that: 
-- Need to [research which specific stepper motors there are](#specific-stepper-motors) and their corresponding torques, dimensions and mass 
+- Need to research which specific stepper motors there are in [Existing Product Analysis: Specific Stepper Motors](#specific-stepper-motors) and their corresponding torques, dimensions and mass 
 - Need to determine which combination of motors to use and where 
 </details>
 
