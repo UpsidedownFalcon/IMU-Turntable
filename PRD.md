@@ -96,7 +96,33 @@ Using stepper motors, an open-source IMU turntable can be designed in [Initial D
 
 ### Specific Stepper Motors 
 <details> <summary> Expand </summary>
-Test
+
+| Model              | NEMA Size       | Step Angle (°) | Holding Torque (N·cm) | Dimensions (mm)               | Mass (kg) | Rotor Intertia (gcm2) | Datasheet Link                                                                                         |
+|--------------------|-----------------|----------------|-----------------------|-------------------------------|-----------|--------------------------------------------------------------------------------------------------------|-----------------------------------------|
+| **14HR05-0504S**   | NEMA 14 (Φ36.5) | 0.9            | 5                     | Φ36.5 × 12.5; shaft Φ5×10.5   | 0.06      | 11.00 | [14HR05-0504S.pdf](https://www.oyostepper.com/images/upload/File/14HR05-0504S.pdf)                      |
+| **14HR08-0654S**   | NEMA 14 (Φ36)   | 0.9            | 8                     | Φ36 × 20; shaft Φ5×15.5       | 0.13      | 13.00 | [14HR08-0654S.pdf](https://www.oyostepper.com/images/upload/File/14HR08-0654S.pdf)                      |
+| **14HM08-0504S**   | NEMA 14 (35×35) | 0.9            | 5                     | 35 × 35 × 20                  | ~0.10      | 8.00 | [14HM08-0504S.pdf](https://www.omc-stepperonline.com/download/14HM08-0504S.pdf)                          |
+| **14HM11-0404S**   | NEMA 14 (35×35) | 0.9            | 11                     | 35 × 35 × 11.5                | 0.12      | 10.00| [14HM11-0404S.pdf](https://www.oyostepper.com/images/upload/File/14HM11-0404S.pdf)                      |
+| **16HM09-1204S**   | NEMA 16 (Φ39)   | 0.9            | 11                     | Φ39 × 24                      | 0.10      | 10.00 | [16HM09-1204S.pdf](https://www.omc-stepperonline.com/download/16HM09-1204S.pdf)                      |
+| **16HM10-0604S**   | NEMA 16 (Φ39)   | 0.9            | 16                    | Φ39 × 24                      | 0.12      | 11.00 | [16HM10-0604S.pdf](https://www.oyostepper.com/images/upload/File/16HM10-0604S.pdf)                      |
+| **16HM13-0404S**   | NEMA 16 (Φ39)   | 0.9            | 18                    | Φ39 × 28                      | 0.18      | 20.00 | [16HM13-0404S.pdf](https://www.oyostepper.com/images/upload/File/16HM13-0404S.pdf)                      |
+| **16HM17-0304S**| NEMA 16 (Φ39)   | 0.9            | 25                    | Φ39 × 34                      | 0.25      | 36.00 | [16HM17-0304S.pdf](https://www.oyostepper.com/images/upload/File/CN-16HM17-0304S.pdf)                 |
+| **17HM08-1204S**   | NEMA 17 (42×42) | 0.9            | 11                     | 42 × 42 × 20                  | 0.15      | 14.00 | [17HM08-1204S.pdf](https://www.oyostepper.com/images/upload/File/17HM08-1204S.pdf)                      |
+| **17HM13-0316D**   | NEMA 17 (42×42) | 0.9            | 23                    | 42 × 42 × 34                  | 0.28      | 38.00 | [17HM13-0316D.pdf](https://www.oyostepper.com/images/upload/File/17HM13-0316D.pdf)                      |
+| **17HM13-0316S**   | NEMA 17 (42×42) | 0.9            | 23                    | 42 × 42 × 34                  | 0.28      | 38.00 | [17HM13-0316S.pdf](https://www.oyostepper.com/images/upload/File/17HM13-0316S.pdf)                      |
+| **17HM15-0406S**   | NEMA 17 (42×42) | 0.9            | 26                    | 42 × 42 × 39                  | 0.28      | 54.00 | [17HM15-0406S.pdf](https://www.oyostepper.com/images/upload/File/17HM15-0406S.pdf)                      |
+| **17HM15-0904S**   | NEMA 17 (42×42) | 0.9            | 36                    | 42 × 42 × 40                  | 0.28      | 54.00 | [17HM15-0904S.pdf](https://www.oyostepper.com/images/upload/File/17HM15-0904S.pdf)                      |
+| **17HM15-1004S**   | NEMA 17 (42×42) | 0.9            | 33                    | 42 × 42 × 40                  | 0.31      | 54.00 | [17HM15-1004S.pdf](https://www.oyostepper.com/images/upload/File/17HM15-1004S.pdf)                      |
+| **17ME15-1504S**   | NEMA 17 (42×42) | 0.9            | 30                    | 42 × 42 × 38                  | 0.28      | - | [17ME15-1504S.pdf](https://www.oyostepper.com/images/upload/File/17ME15-1504S.pdf)                      |
+| **17HM19-0406D**   | NEMA 17 (42×42) | 0.9            | 32                    | 42 × 42 × 48                  | 0.35      | 68.00 | [17HM19-0406D.pdf](https://www.oyostepper.com/images/upload/File/17HM19-0406D.pdf)                      |
+| **17HM19-1684S**   | NEMA 17 (42×42) | 0.9            | 44                    | 42 × 42 × 47                  | 0.35      | 68.00 | [17HM19-1684S.pdf](https://www.oyostepper.com/images/upload/File/17HM19-1684S.pdf)                      |
+| **17HM19-1684D**   | NEMA 17 (42×42) | 0.9            | 44                    | 42 × 42 × 48                  | 0.35      | 68.00 | [17HM19-1684D.pdf](https://www.oyostepper.com/images/upload/File/17HM19-1684D.pdf)                      |
+| **17HM19-2004S**   | NEMA 17 (42×42) | 0.9            | 46                    | 42 × 42 × 48                  | 0.40      | 82.00 | [17HM19-2004S.pdf](https://www.oyostepper.com/images/upload/File/17HM19-2004S.pdf)                      |
+| **17HM19-2004S1**  | NEMA 17 (42×42) | 0.9            | 46                    | 42 × 42 × 48                  | 0.37      | 68.00 | [17HM19-2004S1.pdf](https://www.oyostepper.com/images/upload/File/17HM19-2004S1.pdf)                    |
+| **23HM22-2804S**   | NEMA 23 (57×57) | 0.9            | 115                    | 57 × 57 × 56                  | 0.70      | 300.00 | [23HM22-2804S.pdf](https://www.oyostepper.com/images/upload/File/23HM22-2804S.pdf)                      |
+
+Using this data, appropriate stepper motors can be selected for each axis of rotation, shown in [Final Design: Stepper Motor Selection Calculations](#stepper-motor-selection-calculations).
+
 </details>
 
 ## 4. Design Specification  
@@ -136,9 +162,11 @@ Initial design sketch of an open-source IMU turntable actuated using stepper mot
 ![Initial Stepper Sketch](Images_MD/StepperTurntable.jpg) 
 The drawback with using such a direct drive system is that the stepper motor at the base will have a greater load than the stepper motor at the top because the mass of the turntable + IMU > mass of IMU. **Next step** is to figure out which specific stepper motors to use - for that: 
 - Need to research which specific stepper motors there are in [Existing Product Analysis: Specific Stepper Motors](#specific-stepper-motors) and their corresponding torques, dimensions and mass 
-- Need to determine which combination of motors to use and where 
+- Need to determine which combination of stepper motors to use and where, shown in [Final Design: Stepper Motor Selection Calculations](#stepper-motor-selection-calculations)
 </details>
 
 ## 6. Final Design 
+
+### Stepper Motor Selection Calculations
 
 ## 7. Manufacturing 
