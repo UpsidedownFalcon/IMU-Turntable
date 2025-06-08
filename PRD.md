@@ -168,5 +168,81 @@ The drawback with using such a direct drive system is that the stepper motor at 
 ## 6. Final Design 
 
 ### Stepper Motor Selection Calculations
+<details> <summary> Expand </summary>
+
+- The [Firepower 2TS-450](https://www.accelerometergyro.com/sale-30377756-remote-control-position-rate-turntable-for-ins-imu-test-and-calibration.html) has a maximum angular acceleration of 300 °s^{-2} = **5.236 rads^{-2}**
+- **Motor Torque = Load Torque + Friction Torque**, where **Torque = Inertia x Angular Acceleration** 
+    - For load torque, **load inertia** depends on the mass and size of the IMU and the frame it's attached to 
+    - Friction torque can be modelled as the torque required to spin ANOTHER motor shaft. That's because a bearing + rotary encoder would be used on the other side of the rotating axis. Specific components for the bearing + rotary encoder are yet to be selected, so by modelling them as ANOTHER motor shaft, it gives an OVERESTIMATE to the torque required from the motor. 
+- The IMU sensor can be modelled as a solid rod of uniform density by using the maximum mass and dimensions from the list of IMU sensors in the [Initial Design Ideas](#5-initial-design-ideas): 
+    - Maximum mass: **11.86g** of the ADIS16470 
+    - Maximum length: **15.25mm** of the ADIS16470 
+
+![Inertia Equations](Images_MD/InertiaEquations.png) 
+
+Hence, **I_IMU** = 1/2 x 11.86E-3 x (15.25E-3)^2 = **1.379E-6 kgm^2**
+
+#### Stage X: Rotation about the X axis 
+![Stage X](Images_MD/XYTopPlane.jpg) => ![Stage X Inertia Model](Images_MD/XYTopPlane_InertiaModel.jpg) 
+
+Since a parts list hasn't been finalised yet, the following modelling assumptions are made to approximate the inertia: 
+- Rotor inertia of the stepper motor causes a greater resistance to rotation than the friction in a ball bearing as the rotor has a greater mass than just a rotational axis. Hence, by modelling the resistance to motion due to a ball bearing as the inertia of a rotor will provide an overestimate. 
+- Hence, total inertia the motor has to rotate = X Rotor Inertia (I_RX) + IMU Inertia (1.379E-6) + X Rotor Inertia (I_RX)
+
+**=> X Motor Torque = (2I_RX + 1.379E-6)kgm^2 (5.236)rads^{-2}**
+
+#### Stage Y: Rotation about the Y axis 
+![Stage Y](Images_MD/XZPlane.jpg) => ![Stage Y Inertia Model](Images_MD/XZPlane_InertiaModel.jpg)
+
+Since a parts list hasn't been finalised yet, the following modelling assumptions are made to approximate the inertia: 
+- Modelled as a solid rod rotating about its centre normal to its curved surface  
+- Mass of rod approx. = (Mass of 2 X stepper motors) + IMU mass 
+- Length of rod = 2LB_X + 4LS_X + L_IMU 
+- Hence, total inertia by modelling the bearing support to have the same inertia as the Y motor = [1/12 x (2M_X + 11.86E-3) x (2LB_X + 4LS_X + 15.25E-3)^2] + 2 Rotor Inertia (2 I_RY) 
+
+**=> Y Motor Torque = (1/12 (2M_X + 11.86E-3) (2LB_X + 4LS_X + 15.25E-3)^2 + 2 I_RY)kgm^2 (5.236)rads^{-2}**
+
+#### Stage Z: Rotation about the Z axis 
+![Stage Z](Images_MD/XYBottomPlane.jpg) => ![Stage Z Inertia Model](Images_MD/XYBottomPlane_InertiaModel.jpg)
+
+Since a parts list hasn't been finalised yet, the following modelling assumptions are made to approximate the inertia: 
+- Modelling the rotating platform as an uniform-density rod rotating about its centre that is normal to its face 
+- Mass of platform approx. = 2M_X + 2M_Y + M_IMU (assuming mass of Y axis support = M_Y)
+- Radius of platform approx. = 1/2 L_XZ = 1/2 (2LB_X + 4LS_X + L_IMU) 
+- Total inertia (assuming platform support has same inertia as Z Rotor Inertia) = 1/2 (2M_X + 2M_Y + 11.86E-3) (1/2 (2LB_X + 4LS_X + L_IMU))^2 + 2 I_RZ 
+
+**=> Z Motor Torque = (1/8 (2 M_X + 2 M_Y + 11.86E-3) (2 LB_X + 4 LS_X + 15.25E-3)^2 + 2 I_RZ)kgm^2 (5.236)rads^{-2}**
+
+#### Modelling Different Combinations of Stepper Motors 
+As a safety factor, stepper motors will be selected with **at least 10x** the torque than the calculated required torque. 
+
+The variables required are as follows: 
+- I_RX: X Rotor Inertia in kgm^2 
+- M_X: X Stepper Motor Mass in kg 
+- LB_X: X Stepper Motor Body Length in m 
+- LS_X: X Stepper Motor Shaft Length in m
+- I_RY: Y Rotor Intertia in kgm^2 
+- M_Y: Y Stepper Motor Mass in kg 
+- I_RZ: Z Stepper Motor Rotor Inertia in kgm^2 
+
+The constants used are as follows: 
+- Maximum IMU Mass: 11.86E-3 kg
+- Maximum IMU Length: 15.25E-3 m 
+- Angular acceleration: 5.236 rads^{-2}
+
+A [Python Script](Stepper_Selection_Model/Stepper_Selection_Model.py) was written to produce a list of [possible stepper motor combinations](Stepper_Selection_Model/stepper_options.csv). The following stepper motors are selected in row **1389**: 
+- **X Axis Stepper Motor:** 14HM11-0404S 
+- **Y Axis Stepper Motor:** 16HM17-0304S
+- **Z Axis Stepper Motor:** 17HM19-2004S1
+These motors can be purchased from [Stepper Online](https://www.omc-stepperonline.com/). 
+
+Due to lead time of components from specialist electronic suppliers, the stepper motors were bought from Amazon instead. The desired models weren't available so the following were bought: 
+- Nema 17 42-23 
+- Nema 17 42-38 
+- Nema 17 42-60 
+
+[Rotary Encoder, Magnetic, Incremental, 4096 CPR, Straight](https://uk.farnell.com/broadcom/aeat-901b-r06/magnetic-encoder-incremental-straight/dp/4568216) were ordered due to lead time from Farnell. 
+
+</details>
 
 ## 7. Manufacturing 
