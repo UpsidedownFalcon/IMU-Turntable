@@ -245,4 +245,6 @@ Due to lead time of components from specialist electronic suppliers, the stepper
 
 </details>
 
+Largest IMU length was 33.25mm. Want to make an IMU mounting cradle where any IMU can be mounted and adjusted such that the IMU SoC is about the centre of the axes. Hence, cradle lengths should be double that @ ~70mm. 
+
 ## 7. Manufacturing 
