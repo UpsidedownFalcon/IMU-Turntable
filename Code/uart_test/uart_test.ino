@@ -20,7 +20,7 @@
 #define DRIVER_ADDRESS 0b00
 
 // Motor parameters
-#define R_SENSE       0.11f
+#define R_SENSE       0.20f
 #define STEPS_PER_REV 200
 #define MICROSTEPS    16
 
@@ -40,29 +40,93 @@ struct Motion {
 };
 Motion motors[3];
 
+
+
 void setup() {
-  pinMode(13, OUTPUT); 
-  digitalWrite(13, HIGH); 
+  // ––––– Serial for debugging –––––
+  Serial.begin(115200);
+  while (!Serial);               // wait for host
 
-  // Enable pins
+  // ––––– Alive LED –––––
+  pinMode(13, OUTPUT);
+  digitalWrite(13, HIGH);
+
+  // ––––– Driver enable pins (active LOW) –––––
   pinMode(EN1, OUTPUT); pinMode(EN2, OUTPUT); pinMode(EN3, OUTPUT);
-  digitalWrite(EN1, LOW); digitalWrite(EN2, LOW); digitalWrite(EN3, LOW);
+  digitalWrite(EN1, LOW);    digitalWrite(EN2, LOW);    digitalWrite(EN3, LOW);
 
-  // Step pins
+  // ––––– STEP pins start LOW –––––
   pinMode(STEP1, OUTPUT); pinMode(STEP2, OUTPUT); pinMode(STEP3, OUTPUT);
-  digitalWrite(STEP1, LOW); digitalWrite(STEP2, LOW); digitalWrite(STEP3, LOW);
+  digitalWrite(STEP1, LOW);   digitalWrite(STEP2, LOW);   digitalWrite(STEP3, LOW);
 
-  // UART and driver initialize
+  // ––––– Initialize & configure each TMC2209 –––––
   SERIAL1_PORT.begin(115200);
-  driver1.begin(); driver1.toff(5); driver1.rms_current(2000); driver1.microsteps(MICROSTEPS); driver1.pwm_autoscale(true);
-  SERIAL2_PORT.begin(115200);
-  driver2.begin(); driver2.toff(5); driver2.rms_current(2000); driver2.microsteps(MICROSTEPS); driver2.pwm_autoscale(true);
-  SERIAL3_PORT.begin(115200);
-  driver3.begin(); driver3.toff(5); driver3.rms_current(2000); driver3.microsteps(MICROSTEPS); driver3.pwm_autoscale(true);
+  driver1.begin();
+  driver1.toff(5);
+  driver1.rms_current(2000);
+  driver1.microsteps(MICROSTEPS);
+  driver1.pwm_autoscale(true);
 
-  // Start a single full rotation (0°→360°) over 3000 ms
+  SERIAL2_PORT.begin(115200);
+  driver2.begin();
+  driver2.toff(5);
+  driver2.rms_current(2000);
+  driver2.microsteps(MICROSTEPS);
+  driver2.pwm_autoscale(true);
+
+  SERIAL3_PORT.begin(115200);
+  driver3.begin();
+  driver3.toff(5);
+  driver3.rms_current(2000);
+  driver3.microsteps(MICROSTEPS);
+  driver3.pwm_autoscale(true);
+
+  // ––––– UART link & register‐read checks –––––
+  Serial.println("===== UART & Register Check =====");
+
+  // Driver 1
+  {
+    bool ok = driver1.test_connection();
+    Serial.print("Driver1 UART: ");
+    Serial.println(ok ? "OK" : "FAIL");
+    Serial.print("  GCONF = 0x");
+    Serial.println(driver1.GCONF(), HEX);
+    Serial.print("  IHOLD_IRUN = 0x");
+    Serial.println(driver1.IHOLD_IRUN(), HEX);
+  }
+
+  // Driver 2
+  {
+    bool ok = driver2.test_connection();
+    Serial.print("Driver2 UART: ");
+    Serial.println(ok ? "OK" : "FAIL");
+    Serial.print("  GCONF = 0x");
+    Serial.println(driver2.GCONF(), HEX);
+    Serial.print("  IHOLD_IRUN = 0x");
+    Serial.println(driver2.IHOLD_IRUN(), HEX);
+  }
+
+  // Driver 3
+  {
+    bool ok = driver3.test_connection();
+    Serial.print("Driver3 UART: ");
+    Serial.println(ok ? "OK" : "FAIL");
+    Serial.print("  GCONF = 0x");
+    Serial.println(driver3.GCONF(), HEX);
+    Serial.print("  IHOLD_IRUN = 0x");
+    Serial.println(driver3.IHOLD_IRUN(), HEX);
+  }
+
+  Serial.println("=================================");
+
+  delay(100);  // give the prints time to flush
+
+  // ––––– Start your move –––––
   startRotation(0.0f, 360.0f, 3000UL);
 }
+
+
+
 
 void loop() {
   // Progress motor steps until done
