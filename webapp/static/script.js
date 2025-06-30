@@ -117,12 +117,10 @@ discretizeBtn.addEventListener('click', async () => {
       const { error } = await res.json();
       throw new Error(error || 'Discretization failed');
     }
-    const { segments } = await res.json();
-    resultPre.textContent = segments.map((seg, i) => {
-      const line1 = `Piece ${i+1}: domain=${seg.domain}, dt=${seg.dt.toFixed(6)}s, samples=${seg.angles.length}`;
-      const line2 = seg.angles.map(a => a.toFixed(3)).join(', ');
-      return line1 + '\n' + line2;
-    }).join('\n\n');
+    const { times, angles } = await res.json();
+    resultPre.textContent =
+      `Times (${times.length}):\n`  + times.map(t => t.toFixed(6)).join(', ') +
+      `\n\nAngles (${angles.length}):\n` + angles.map(a => a.toFixed(3)).join(', ');
     resultPre.classList.remove('hidden');
   } catch (e) {
     alert(e.message);
