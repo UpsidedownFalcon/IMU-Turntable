@@ -4,12 +4,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sympy as sp
 import csv
+import struct
+import serial
+import time
 
 TRAJECTORIES = {
   'X': {'times': None, 'angles': None},
   'Y': {'times': None, 'angles': None},
   'Z': {'times': None, 'angles': None},
 }
+
+port = '/dev/ttyACM0'
+baudrate = 115200 
+serial_conn = serial.Serial(port, baudrate, timeout=2) 
 
 MIN_DT = 0.002
 
@@ -282,7 +289,78 @@ def discretize_all():
             "angles": angles.tolist()
         }
 
-    return jsonify(result)
+    try: 
+        send_trajectories_over_serial(serial_conn, trajectories=TRAJECTORIES) 
+    except serial.SerialTimeoutException: 
+        return jsonify(error="Serial write timed out"), 500
+    except Exception as e: 
+        return jsonify(error=f"Serial error: {e}"), 500
+    return jsonify(result) 
+
+
+
+
+
+def send_trajectories_over_serial(port: str, baudrate: int, trajectories: dict, timeout: float = 2.0):
+    """
+    Send the trajectories in the form:
+      trajectories = {
+        'X': {'times': np.ndarray, 'angles': np.ndarray},
+        'Y': {...}, 'Z': {...}
+      }
+    over USB serial to a Teensy configured to accept:
+      BEGIN <Axis> <size>\n
+      <raw binary (uint32 N, N×float32 times, N×float32 angles)>
+    and finally a "GO\n" command.
+    """
+
+    # Open the serial port
+    ser = serial.Serial(port, baudrate, timeout=timeout)
+    time.sleep(0.2)  # give the Teensy a moment to reset
+
+    for axis in ('X','Y','Z'):
+        traj = trajectories.get(axis, {})
+        times = traj.get('times')
+        angles = traj.get('angles')
+        if times is None or angles is None:
+            print(f"[!] No data for axis {axis}, skipping.")
+            continue
+
+        if len(times) != len(angles):
+            raise ValueError(f"Axis {axis}: times and angles length mismatch")
+
+        N = len(times)
+        # Build binary payload
+        buf = bytearray()
+        buf += struct.pack('<I', N)  # 4-byte count
+        for t, a in zip(times, angles):
+            buf += struct.pack('<ff', float(t), float(a))
+
+        # Send header
+        header = f"BEGIN {axis} {len(buf)}\n".encode('ascii')
+        ser.write(header)
+        ser.flush()
+
+        # Send data
+        ser.write(buf)
+        ser.flush()
+
+        # Wait for Teensy to ACK (optional)
+        ack = ser.readline().decode('ascii', errors='ignore').strip()
+        if ack != 'OK':
+            print(f"[!] No OK ack for axis {axis}, got: {ack!r}")
+        else:
+            print(f"[+] Sent {axis}: {N} samples")
+
+    # Finally send the GO command
+    ser.write(b"GO\n")
+    ser.flush()
+    print("[+] Sent GO")
+
+    ser.close()
+
+
+
 
 
 
