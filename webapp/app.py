@@ -6,17 +6,15 @@ import sympy as sp
 import csv
 import struct
 import serial
+from serial.tools import list_ports
 import time
+import os 
 
 TRAJECTORIES = {
   'X': {'times': None, 'angles': None},
   'Y': {'times': None, 'angles': None},
   'Z': {'times': None, 'angles': None},
 }
-
-port = '/dev/ttyACM0'
-baudrate = 115200 
-serial_conn = serial.Serial(port, baudrate, timeout=2) 
 
 MIN_DT = 0.002
 
@@ -289,79 +287,52 @@ def discretize_all():
             "angles": angles.tolist()
         }
 
-    try: 
-        send_trajectories_over_serial(serial_conn, trajectories=TRAJECTORIES) 
-    except serial.SerialTimeoutException: 
-        return jsonify(error="Serial write timed out"), 500
-    except Exception as e: 
-        return jsonify(error=f"Serial error: {e}"), 500
+    try:
+        # e.g. on Windows your SD is mounted at 'E:/traj', on Linux '/mnt/sd/traj'
+        sd_mount = r"D:\traj"
+        write_trajectories_to_sd(sd_mount, TRAJECTORIES)
+    except Exception as e:
+        return jsonify(error=f"Failed to write SD: {e}"), 500
+
     return jsonify(result) 
 
-
-
-
-
-def send_trajectories_over_serial(port: str, baudrate: int, trajectories: dict, timeout: float = 2.0):
+def write_trajectories_to_sd(sd_path: str, trajectories: dict):
     """
-    Send the trajectories in the form:
-      trajectories = {
-        'X': {'times': np.ndarray, 'angles': np.ndarray},
-        'Y': {...}, 'Z': {...}
-      }
-    over USB serial to a Teensy configured to accept:
-      BEGIN <Axis> <size>\n
-      <raw binary (uint32 N, N×float32 times, N×float32 angles)>
-    and finally a "GO\n" command.
+    Write each axis trajectory in `trajectories` to
+      {sd_path}/{axis}.bin
+    as:
+      [uint32 N][ float32 t0, float32 a0, float32 t1, float32 a1, … ]
+    
+    sd_path: mount point or folder on your computer that maps to
+             the SD card’s root (e.g. "E:/traj" or "/mnt/sdcard/traj").
+    trajectories: {
+      'X': {'times': np.ndarray, 'angles': np.ndarray},
+      'Y': {...}, 'Z': {...}
+    }
     """
-
-    # Open the serial port
-    ser = serial.Serial(port, baudrate, timeout=timeout)
-    time.sleep(0.2)  # give the Teensy a moment to reset
+    # ensure the output directory exists
+    os.makedirs(sd_path, exist_ok=True)
 
     for axis in ('X','Y','Z'):
         traj = trajectories.get(axis, {})
         times = traj.get('times')
         angles = traj.get('angles')
         if times is None or angles is None:
-            print(f"[!] No data for axis {axis}, skipping.")
+            print(f"Skipping {axis!r}: no data")
             continue
-
         if len(times) != len(angles):
-            raise ValueError(f"Axis {axis}: times and angles length mismatch")
+            raise ValueError(f"{axis}: times/angles length mismatch")
 
         N = len(times)
-        # Build binary payload
-        buf = bytearray()
-        buf += struct.pack('<I', N)  # 4-byte count
-        for t, a in zip(times, angles):
-            buf += struct.pack('<ff', float(t), float(a))
+        out_file = os.path.join(sd_path, f"{axis}.bin")
+        with open(out_file, 'wb') as f:
+            # write count
+            f.write(struct.pack('<I', N))
+            # write interleaved time/angle pairs
+            for t, a in zip(times, angles):
+                f.write(struct.pack('<ff', float(t), float(a)))
 
-        # Send header
-        header = f"BEGIN {axis} {len(buf)}\n".encode('ascii')
-        ser.write(header)
-        ser.flush()
-
-        # Send data
-        ser.write(buf)
-        ser.flush()
-
-        # Wait for Teensy to ACK (optional)
-        ack = ser.readline().decode('ascii', errors='ignore').strip()
-        if ack != 'OK':
-            print(f"[!] No OK ack for axis {axis}, got: {ack!r}")
-        else:
-            print(f"[+] Sent {axis}: {N} samples")
-
-    # Finally send the GO command
-    ser.write(b"GO\n")
-    ser.flush()
-    print("[+] Sent GO")
-
-    ser.close()
-
-
-
-
+        print(f"Wrote {axis}.bin  ({N} samples, {(1+2*N)*4} bytes)")
 
 
 # def save_all_trajectories_csv(path="all_trajectories.csv"):
