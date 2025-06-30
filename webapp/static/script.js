@@ -1,128 +1,183 @@
-const rowsContainer = document.getElementById('rows');
-const plotEl        = document.getElementById('plot');
-const errDiv        = document.getElementById('error');
-const addRowBtn     = document.getElementById('add-row');
-const form          = document.getElementById('func-form');
+const rowsContainer   = document.getElementById('rows');
+const plotEl          = document.getElementById('plot');
+const profileImg      = document.getElementById('profile-plot');
+const addRowBtn       = document.getElementById('add-row');
+const motorButtons    = document.querySelectorAll('.motor-btn');
+const discretizeBtn   = document.getElementById('discretize-btn');
+const outputDialog    = document.getElementById('output-dialog');
+const stepAngleInput  = document.getElementById('step-angle');
+const microstepsInput = document.getElementById('microsteps');
 
-let debounceId = null;
+let currentMotor = 'X';
+const savedRows  = { X: [], Y: [], Z: [] };
+
+let plotDebounce, profileDebounce;
 const DEBOUNCE_MS = 500;
 
-// Plot‐all logic
-async function doPlot() {
-  const rows = Array.from(rowsContainer.querySelectorAll('.row'));
-  const payload = {
-    functions: rows.map(r => ({
+// Read current rows into [{function,domain},…]
+function getCurrentRows() {
+  return Array.from(rowsContainer.querySelectorAll('.row'))
+    .map(r => ({
       function: r.querySelector('.func-input').value.trim(),
       domain:   r.querySelector('.domain-input').value.trim()
     }))
-  };
+    .filter(o => o.function && o.domain);
+}
 
-  try {
-    const res = await fetch('/plot', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) {
-      const { error } = await res.json();
-      throw new Error(error || 'Error plotting');
-    }
-    const { img } = await res.json();
-    plotEl.src = `data:image/png;base64,${img}`;
-    errDiv.classList.add('hidden');
-  } catch (e) {
-    errDiv.textContent = e.message;
-    errDiv.classList.remove('hidden');
+// Save/load per motor
+function saveRows(m) { savedRows[m] = getCurrentRows(); }
+function loadRows(m) {
+  rowsContainer.innerHTML = '';
+  const defs = savedRows[m].length
+             ? savedRows[m]
+             : [{function:'',domain:''}];
+  defs.forEach(d => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <input type="text" class="func-input"   placeholder="e.g. sin(x)"    value="${d.function}">
+      <input type="text" class="domain-input" placeholder="Domain: start,end" value="${d.domain}">
+      <button type="button" class="remove-row">−</button>
+    `;
+    rowsContainer.appendChild(row);
+  });
+}
+
+// Enable/disable discretize button and clear output dialog
+function updateDiscretizeState() {
+  const ok = ['X','Y','Z'].every(m => {
+    const rows = savedRows[m];
+    return rows.length>0 && rows.every(r => r.function && r.domain);
+  });
+  discretizeBtn.disabled = !ok;
+  if (!ok) {
+    outputDialog.textContent = 'Please fill in both function+domain for X, Y, and Z.';
+    outputDialog.classList.remove('hidden');
+  } else {
+    outputDialog.textContent = '';
+    outputDialog.classList.add('hidden');
   }
 }
 
-function schedulePlot() {
-  clearTimeout(debounceId);
-  debounceId = setTimeout(doPlot, DEBOUNCE_MS);
-}
-
-// 1) Live‐plot on input change
-rowsContainer.addEventListener('input', e => {
-  if (e.target.matches('.func-input, .domain-input')) {
-    schedulePlot();
-  }
+// --- Motor tabs ---
+motorButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelector('.motor-btn.active').classList.remove('active');
+    btn.classList.add('active');
+    saveRows(currentMotor);
+    currentMotor = btn.dataset.motor;
+    loadRows(currentMotor);
+    triggerPlot(); triggerProfile();
+    updateDiscretizeState();
+  });
 });
 
-// 2) Add new row
+// --- Plot piecewise (col 2) ---
+async function doPlot() {
+  const payload = { functions: getCurrentRows() };
+  try {
+    const res = await fetch('/plot', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    const { img } = await res.json();
+    plotEl.src = `data:image/png;base64,${img}`;
+  } catch(_) {}
+}
+function triggerPlot() {
+  clearTimeout(plotDebounce);
+  plotDebounce = setTimeout(() => {
+    saveRows(currentMotor);
+    doPlot();
+    updateDiscretizeState();
+  }, DEBOUNCE_MS);
+}
+
+// --- Plot profile (col 1) ---
+async function doProfile() {
+  const payload = {
+    functions:  getCurrentRows(),
+    step_angle: parseFloat(stepAngleInput.value),
+    microsteps: parseInt(microstepsInput.value,10)
+  };
+  try {
+    const res = await fetch('/profile', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    const { img } = await res.json();
+    profileImg.src = `data:image/png;base64,${img}`;
+  } catch(_) {}
+}
+function triggerProfile() {
+  clearTimeout(profileDebounce);
+  profileDebounce = setTimeout(() => {
+    saveRows(currentMotor);
+    doProfile();
+    updateDiscretizeState();
+  }, DEBOUNCE_MS);
+}
+
+// --- Form interactions ---
+rowsContainer.addEventListener('input', e => {
+  if (e.target.matches('.func-input, .domain-input')) {
+    triggerPlot(); triggerProfile();
+  }
+});
 addRowBtn.addEventListener('click', () => {
   const proto = rowsContainer.querySelector('.row');
   const clone = proto.cloneNode(true);
   clone.querySelector('.func-input').value = '';
   clone.querySelector('.domain-input').value = '';
   rowsContainer.appendChild(clone);
-  schedulePlot();
+  triggerPlot(); triggerProfile();
 });
-
-// 3) Remove row
 rowsContainer.addEventListener('click', e => {
-  if (e.target.matches('.remove-row')) {
-    const allRows = rowsContainer.querySelectorAll('.row');
-    if (allRows.length === 1) {
-      const r = allRows[0];
-      r.querySelector('.func-input').value = '';
-      r.querySelector('.domain-input').value = '';
-    } else {
-      e.target.closest('.row').remove();
-    }
-    schedulePlot();
+  if (!e.target.matches('.remove-row')) return;
+  const all = rowsContainer.querySelectorAll('.row');
+  if (all.length===1) {
+    all[0].querySelector('.func-input').value = '';
+    all[0].querySelector('.domain-input').value = '';
+  } else {
+    e.target.closest('.row').remove();
   }
+  triggerPlot(); triggerProfile();
 });
 
-// 4) Manual Plot All
-form.addEventListener('submit', e => {
-  e.preventDefault();
-  clearTimeout(debounceId);
-  doPlot();
-});
-
-// 5) Discretization logic for all segments
-const discretizeBtn = document.getElementById('discretize-btn');
-const resultPre     = document.getElementById('discrete-result');
-
+// --- Discretise button handler ---
 discretizeBtn.addEventListener('click', async () => {
-  const rows = Array.from(rowsContainer.querySelectorAll('.row'));
-  const funcs = rows
-    .map(r => ({
-      function: r.querySelector('.func-input').value.trim(),
-      domain:   r.querySelector('.domain-input').value.trim()
-    }))
-    .filter(({function: fn, domain}) => fn && domain);
-
-  if (!funcs.length) {
-    alert('Enter at least one function + domain.');
-    return;
-  }
-
-  const stepAngle = parseFloat(document.getElementById('step-angle').value);
-  const microsteps = parseInt(document.getElementById('microsteps').value, 10);
-
+  // gather all three motor definitions
   const payload = {
-    functions: funcs,
-    step_angle: stepAngle,
-    microsteps: microsteps
+    X: savedRows['X'],
+    Y: savedRows['Y'],
+    Z: savedRows['Z'],
+    step_angle: parseFloat(stepAngleInput.value),
+    microsteps: parseInt(microstepsInput.value,10)
   };
 
+  outputDialog.textContent = 'Discretising… please wait';
+  outputDialog.classList.remove('hidden');
+
   try {
-    const res = await fetch('/discretize', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
+    const res = await fetch('/discretize_all', {
+      method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(payload)
     });
-    if (!res.ok) {
-      const { error } = await res.json();
-      throw new Error(error || 'Discretization failed');
-    }
-    const { times, angles } = await res.json();
-    resultPre.textContent =
-      `Times (${times.length}):\n`  + times.map(t => t.toFixed(6)).join(', ') +
-      `\n\nAngles (${angles.length}):\n` + angles.map(a => a.toFixed(3)).join(', ');
-    resultPre.classList.remove('hidden');
+    if (!res.ok) throw new Error((await res.json()).error);
+
+    outputDialog.textContent = '🎉 Functions successfully discretised for X, Y, and Z.';
+    outputDialog.classList.remove('hidden');
   } catch (e) {
-    alert(e.message);
+    outputDialog.textContent = `❌ ${e.message}`;
+    outputDialog.classList.remove('hidden');
   }
 });
+
+// --- Initialize ---
+loadRows('X');
+triggerPlot();
+triggerProfile();
+updateDiscretizeState();
+
