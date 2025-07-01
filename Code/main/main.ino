@@ -1,16 +1,16 @@
+#include <Arduino.h>
+#include <SPI.h>
+#include <SD.h>
 #include <TMCStepper.h>
 
 // Pin definitions for three drivers
 #define EN1   2
-#define DIR1  4
 #define STEP1 3
 
 #define EN2   9
-#define DIR2  5
 #define STEP2 6
 
 #define EN3   30
-#define DIR3  32
 #define STEP3 31
 
 // UART interfaces
@@ -23,139 +23,153 @@
 #define R_SENSE       0.11f
 #define STEPS_PER_REV 200
 #define MICROSTEPS    16
+const float STEP_ANGLE   = 360.0f / STEPS_PER_REV;        // 1.8°
+const float THETA_RES    = STEP_ANGLE / MICROSTEPS;       // 0.1125° per microstep
+
+// SD card
+#define SD_CS BUILTIN_SDCARD
+const char* TRAJ_DIR = "/traj";
 
 // Driver objects
 TMC2209Stepper driver1(&SERIAL1_PORT, R_SENSE, DRIVER_ADDRESS);
 TMC2209Stepper driver2(&SERIAL2_PORT, R_SENSE, DRIVER_ADDRESS);
 TMC2209Stepper driver3(&SERIAL3_PORT, R_SENSE, DRIVER_ADDRESS);
 
-// Per-motor motion state
-struct Motion {
-  bool rotating;
-  unsigned long totalSteps;
-  unsigned long stepIndex;
-  float stepIntervalUs;
-  bool stepHigh;
-  unsigned long lastTimeUs;
-};
-Motion motors[3];
+// Trajectory state per axis
+struct TrajState {
+  File      file;
+  uint32_t  totalSamples;
+  uint32_t  idx;            // next sample index (1..N-1)
+  float     prevAngle;
+  float     nextTime;       // seconds
+  float     nextAngle;
+  bool      done;
+  int       stepPin;
+  TMC2209Stepper* driver;
+} traj[3];
+
+// Start time reference
+uint32_t startMicros;
+
+// Helper to read a little-endian float from SD
+float readFloatLE(File& f) {
+  float v;
+  f.read(&v, sizeof(v));
+  return v;
+}
 
 void setup() {
-  pinMode(13, OUTPUT); 
-  digitalWrite(13, HIGH); 
+  pinMode(13, OUTPUT);
+  digitalWrite(13, HIGH);
 
   // Enable pins
   pinMode(EN1, OUTPUT); pinMode(EN2, OUTPUT); pinMode(EN3, OUTPUT);
   digitalWrite(EN1, LOW); digitalWrite(EN2, LOW); digitalWrite(EN3, LOW);
 
-  // Step pins
+  // Step pins low
   pinMode(STEP1, OUTPUT); pinMode(STEP2, OUTPUT); pinMode(STEP3, OUTPUT);
   digitalWrite(STEP1, LOW); digitalWrite(STEP2, LOW); digitalWrite(STEP3, LOW);
 
-  // UART and driver initialize
+  // Init UART drivers
   SERIAL1_PORT.begin(115200);
-  driver1.begin(); driver1.toff(5); driver1.rms_current(2000); driver1.microsteps(MICROSTEPS); driver1.pwm_autoscale(true);
-  SERIAL2_PORT.begin(115200);
-  driver2.begin(); driver2.toff(5); driver2.rms_current(2000); driver2.microsteps(MICROSTEPS); driver2.pwm_autoscale(true);
-  SERIAL3_PORT.begin(115200);
-  driver3.begin(); driver3.toff(5); driver3.rms_current(2000); driver3.microsteps(MICROSTEPS); driver3.pwm_autoscale(true);
+  driver1.begin(); driver1.toff(5); driver1.rms_current(2000);
+  driver1.microsteps(MICROSTEPS); driver1.pwm_autoscale(true);
 
-  // Start a single full rotation (0°→360°) over 3000 ms
-  startRotation(0.0f, 360.0f, 3000UL);
+  SERIAL2_PORT.begin(115200);
+  driver2.begin(); driver2.toff(5); driver2.rms_current(2000);
+  driver2.microsteps(MICROSTEPS); driver2.pwm_autoscale(true);
+
+  SERIAL3_PORT.begin(115200);
+  driver3.begin(); driver3.toff(5); driver3.rms_current(2000);
+  driver3.microsteps(MICROSTEPS); driver3.pwm_autoscale(true);
+
+  // Mount SD
+  if (!SD.begin(SD_CS)) {
+    Serial.println("SD init failed");
+    while (true) {}
+  }
+  // ensure folder
+  if (!SD.exists(TRAJ_DIR)) {
+    SD.mkdir(TRAJ_DIR);
+  }
+
+  // Open & prime trajectories
+  const char* names[3] = { "X", "Y", "Z" };
+  for (int i = 0; i < 3; i++) {
+    traj[i].stepPin   = (i==0? STEP1 : (i==1? STEP2 : STEP3));
+    traj[i].driver    = (i==0? &driver1 : (i==1? &driver2 : &driver3));
+    traj[i].done      = false;
+    String path = String(TRAJ_DIR) + "/" + names[i] + ".bin";
+    traj[i].file = SD.open(path.c_str(), FILE_READ);
+    if (!traj[i].file) {
+      Serial.print("ERR: cannot open ");
+      Serial.println(path);
+      traj[i].done = true;
+      continue;
+    }
+    // read sample count
+    uint32_t N = 0;
+    traj[i].file.read(&N, sizeof(N));
+    traj[i].totalSamples = N;
+    if (N < 2) {
+      traj[i].done = true;
+      continue;
+    }
+    // read first sample (t0, a0)
+    float t0 = readFloatLE(traj[i].file);
+    float a0 = readFloatLE(traj[i].file);
+    traj[i].prevAngle = a0;
+    // read second sample (t1, a1)
+    traj[i].nextTime  = readFloatLE(traj[i].file);
+    traj[i].nextAngle = readFloatLE(traj[i].file);
+    traj[i].idx       = 1;
+  }
+
+  // record start timestamp
+  startMicros = micros();
 }
 
 void loop() {
-  // Progress motor steps until done
-  updateRotation();
-  digitalWrite(13, LOW); 
-  // delay(5000); 
+  uint32_t nowUs = micros();
+  float    elapsedSec = (nowUs - startMicros) * 1e-6f;
 
-  // while(true){
-  //   digitalWrite(EN1, HIGH); 
-  //   digitalWrite(EN2, HIGH);
-  //   digitalWrite(EN3, HIGH);  
+  bool allDone = true;
+  for (int i = 0; i < 3; i++) {
+    if (traj[i].done) continue;
+    allDone = false;
 
-  //   digitalWrite(13, !digitalRead(13)); 
-  //   delay(1000); 
-  // }
-}
+    // Time to apply this sample?
+    if (elapsedSec >= traj[i].nextTime) {
+      // compute angle delta
+      float diff = traj[i].nextAngle - traj[i].prevAngle;
+      if (fabs(diff) >= (THETA_RES * 0.5f)) {
+        // set direction via UART driver
+        bool dir = (diff >= 0);
+        traj[i].driver->shaft(dir);
 
-/**
- * Start a simultaneous rotation on all three motors.
- * @param startAngle  Start angle in degrees
- * @param stopAngle   Stop angle in degrees
- * @param durationMs  Duration of motion in milliseconds
- */
-void startRotation(float startAngle, float stopAngle, unsigned long durationMs) {
-  auto wrapDeg = [](float a) {
-    while (a < 0) a += 360;
-    while (a >= 360) a -= 360;
-    return a;
-  };
-  startAngle = wrapDeg(startAngle);
-  stopAngle  = wrapDeg(stopAngle);
-
-  // Compute signed delta, treat full rotation specially
-  float delta = stopAngle - startAngle;
-  if (fabs(delta) < 1e-3f) {
-    // if start and stop equal, do full rotation
-    delta = 360.0f;
-  } else {
-    // shortest path for partial moves
-    if (delta > 180.0f)  delta -= 360.0f;
-    if (delta < -180.0f) delta += 360.0f;
-  }
-
-  bool dir = (delta >= 0);
-  // Set each driver direction via UART
-  driver1.shaft(dir);
-  driver2.shaft(dir);
-  driver3.shaft(dir);
-
-  unsigned long steps = (unsigned long)(fabs(delta) / 360.0f * (STEPS_PER_REV * MICROSTEPS) + 0.5f);
-  if (steps == 0) return;
-  float interval = (durationMs * 1000.0f) / steps;
-
-  // Initialize each motor's state
-  for (int i = 0; i < 3; ++i) {
-    motors[i].rotating     = true;
-    motors[i].totalSteps   = steps;
-    motors[i].stepIndex    = 0;
-    motors[i].stepIntervalUs = interval;
-    motors[i].stepHigh     = false;
-    motors[i].lastTimeUs   = micros();
-    // Ensure step line low
-    digitalWrite((i==0 ? STEP1 : (i==1 ? STEP2 : STEP3)), LOW);
-  }
-}
-
-/**
- * Non-blocking update: call frequently to progress all motors.
- */
-void updateRotation() {
-  unsigned long now = micros();
-  for (int i = 0; i < 3; ++i) {
-    Motion &m = motors[i];
-    if (!m.rotating) continue;
-
-    unsigned long elapsed = now - m.lastTimeUs;
-    int stepPin = (i==0 ? STEP1 : (i==1 ? STEP2 : STEP3));
-
-    if (!m.stepHigh) {
-      if (elapsed >= (unsigned long)m.stepIntervalUs) {
-        digitalWrite(stepPin, HIGH);
-        m.lastTimeUs = now;
-        m.stepHigh   = true;
+        // emit one microstep pulse
+        digitalWrite(traj[i].stepPin, HIGH);
+        delayMicroseconds(2);
+        digitalWrite(traj[i].stepPin, LOW);
       }
-    } else {
-      if (elapsed >= 2) {
-        digitalWrite(stepPin, LOW);
-        m.lastTimeUs = now;
-        m.stepHigh   = false;
-        if (++m.stepIndex >= m.totalSteps) {
-          m.rotating = false;
-        }
+      // advance
+      traj[i].prevAngle = traj[i].nextAngle;
+      traj[i].idx++;
+      if (traj[i].idx < traj[i].totalSamples) {
+        // read next (t,a)
+        traj[i].nextTime  = readFloatLE(traj[i].file);
+        traj[i].nextAngle = readFloatLE(traj[i].file);
+      } else {
+        // done with this axis
+        traj[i].file.close();
+        traj[i].done = true;
       }
     }
+  }
+
+  // optionally blink LED when all done
+  if (allDone) {
+    digitalWrite(13, !digitalRead(13));
+    delay(200);
   }
 }
