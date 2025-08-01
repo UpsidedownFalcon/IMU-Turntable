@@ -1,0 +1,5 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "Teensy41")(type "Legacy")(uri "${KIPRJMOD}/Teensy41_Symbols/teensy.lib")(options "")(descr ""))
+  (lib (name "TMC2209")(type "KiCad")(uri "${KIPRJMOD}/TMC2209.kicad_sym")(options "")(descr ""))
+)
