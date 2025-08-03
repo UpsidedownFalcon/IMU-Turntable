@@ -41,8 +41,8 @@ Each directory has its own README file that contains further details about it.
 
 The High-Tech Fidget Spinner is a **WORK IN PROGRESS** as of August 3, 2025. The community should follows this repository for the latest iterations. 
 
-A **FORK** of this repository should be created to modify the project for your bespoke applicaiton. 
+- A **FORK** of this repository should be created to modify the project for your bespoke applicaiton. 
 
-An **ISSUE** should be created to suggest changes / bug fixes for the entire community. 
+- An **ISSUE** should be created to suggest changes / bug fixes for the entire community. 
 
 Everyone is welcome to use, collaborate and iterate on this project! 
