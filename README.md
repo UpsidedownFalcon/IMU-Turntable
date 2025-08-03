@@ -2,6 +2,8 @@
 
 Welcome! This is an open-source project for the construction of a 3-DoF IMU turntable, named to be a "High-Tech Fidget Spinner". It is a low-cost alternative to commercial solutions which can cost in the 5 to 6-figure USD range, to be used for the validation and characterisation of IMU sensors. 
 
+<img width="1280" height="286" alt="015_Tease2" src="https://github.com/user-attachments/assets/5cda8e1c-1687-4206-a1e5-d6540f1129d3" />
+
 <img width="1226" height="529" alt="System Architecture" src="https://github.com/user-attachments/assets/548bdc92-e83a-4a56-b5be-b41e3e2b28fd" />
 
 The repository contains supporting files to the conference paper titled "High-Tech Fidget Spinner: Open-Source 3-Axis Turntable" from UbiComp Companion ’25, October 12–16, 2025, Espoo, Finland: https://doi.org/10.1145/3714394.3756256 
