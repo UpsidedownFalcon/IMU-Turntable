@@ -34,3 +34,15 @@ Each directory has its own README file that contains further details about it.
 3) Launch the webapp as described in [```/src/```](/src/) 
 
 4) You're ready to use the project! Usage instructions can be found at [```/docs/how-to-use.md```](/docs/how-to-use.md) 
+
+5) Modify as you need for your applications :) 
+
+## Next steps 
+
+The High-Tech Fidget Spinner is a **WORK IN PROGRESS** as of August 3, 2025. The community should follows this repository for the latest iterations. 
+
+A **FORK** of this repository should be created to modify the project for your bespoke applicaiton. 
+
+An **ISSUE** should be created to suggest changes / bug fixes for the entire community. 
+
+Everyone is welcome to use, collaborate and iterate on this project! 
