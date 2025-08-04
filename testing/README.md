@@ -25,6 +25,8 @@ Data manually aligned in time and angle axes at the initial position
 
 => |Resolution| = 0.0461 +- 0.1142 deg 
 
+<img width="1400" height="600" alt="X_error_figures" src="https://github.com/user-attachments/assets/50dc89cd-973a-46f3-951e-6e166c1edf57" />
+
 ### Y-Axis
 - Trajectory starts at t = 5.14s 
 - -1.3 deg angular offset to account for a 0 error 
@@ -35,6 +37,8 @@ Data manually aligned in time and angle axes at the initial position
 
 => |Resolution| = 0.0469 +- 0.0983 deg 
 
+<img width="1400" height="600" alt="Y_error_figures" src="https://github.com/user-attachments/assets/cd5c0bb0-ae04-42ab-81e6-2b4973d0f362" />
+
 ### Z-Axis 
 - Trajectory starts at t = 4.6083s 
 - 0.3806 deg anguler offset to account for a 0 error 
@@ -44,3 +48,5 @@ Data manually aligned in time and angle axes at the initial position
 => Deviation = -0.1758 +- 0.1603 deg 
 
 => |Resolution| = 0.0457 +- 0.0586 deg 
+
+<img width="1400" height="600" alt="Z_error_figures" src="https://github.com/user-attachments/assets/5960a8b3-e2a6-4430-828d-d41547966e8c" />
