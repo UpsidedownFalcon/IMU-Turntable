@@ -12,9 +12,13 @@ Congratulations! If you have made it this far, you hopefully have a (working) 3-
 
 5) Run the Python script and navigate to the IP address printed in the termainal 
 
-6) You will see an UI which looks like this: 
+6) You will see an UI which looks like this:
+
+<img width="1264" height="622" alt="009_GUI" src="https://github.com/user-attachments/assets/f238dadc-a307-4140-8eb6-2cd17539aad0" />
 
 The UI transitions between the following stages: 
+
+<img width="1072" height="539" alt="008_Webapp architecture" src="https://github.com/user-attachments/assets/c13a87a6-92eb-491e-8c39-8575f2b79201" />
 
 Through the UI, you can: 
 - Change your stepper motor parameters 
