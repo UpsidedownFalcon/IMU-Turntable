@@ -7,6 +7,8 @@ To have a functioning High-Tech Fidget Spinner, there are three high-level steps
 
 Completing these three steps may take anywhere between **2 - 4+ hours**. Before starting, please make sure you have all of the materials from [```/build/BoM.md```](/build/BoM.md) and the appropriate tools. 
 
+All of the 3D print files should be printed. Materials and print settings are outlined in [```/build/BoM.md```](/build/BoM.md). 
+
 Let's begin! 
 
 ## Mechanical assembly 
@@ -41,7 +43,7 @@ The mechanical assembly is split into the following assemblies:
 
 ![IMG_20250626_230224](https://github.com/user-attachments/assets/458da974-46f4-401f-b9e7-9f05eb4e4dac)
 
-7) Fix a shaft coupler to the shaft of the Nema 17 42-60 stepper motor. Fix a GT20 pulley around the shaft of t he E38S6G5-600B-G24 rotary encoder. Loop a 135mm GT20 timing belt around the pulley 
+7) Fix a shaft coupler to the shaft of the Nema 17 42-60 stepper motor. Fix a GT20 pulley around the shaft of t he E38S6G5-600B-G24 rotary encoder. Loop a 122mm GT20 timing belt around the pulley 
 
 ![IMG_20250626_232446](https://github.com/user-attachments/assets/9e3798ac-ff9c-4c50-a5ae-e1fbd5de9f3b)
 
@@ -81,7 +83,9 @@ The mechanical assembly is split into the following assemblies:
 
 5) Mount the Nema 17 42-38 and E38S6G5-600B-G24 rotary encoder to their respective Y Brackets 
 
-![IMG_20250627_032512](https://github.com/user-attachments/assets/384d8a6e-a8f4-4395-af44-c2bd219dadad)
+![IMG_20250627_032512](https://github.com/user-attachments/assets/384d8a6e-a8f4-4395-af44-c2bd219dadad) 
+
+6) Secure TPU Universal Mount to the IMU Carriage using M3 screws 
 
 ## Electronic assembly 
 Connect the Teensy 4.1, TMC2209 drivers, stepper motors and rotary encoders as shown by the schematic below: 
