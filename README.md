@@ -1,6 +1,8 @@
 ﻿# High-Tech Fidget Spinner: 3-Axis IMU Turntable 
 
-Welcome! This is an open-source project for the construction of a 3-DoF IMU turntable, named to be a "High-Tech Fidget Spinner". It is a low-cost alternative to commercial solutions which can cost in the 5 to 6-figure USD range, to be used for the validation and characterisation of IMU sensors. 
+Welcome! 
+
+This is an open-source project for the construction of a 3-DoF IMU turntable, called the "High-Tech Fidget Spinner". It is a low-cost alternative to commercial solutions which can cost in the 5 to 6-figure USD range, to be used for the validation and characterisation of IMU sensors. 
 
 <img width="1280" height="286" alt="015_Tease2" src="https://github.com/user-attachments/assets/5cda8e1c-1687-4206-a1e5-d6540f1129d3" />
 
@@ -12,11 +14,11 @@ The top-level strucutre of the repository is as follows:
 
 ```
 .
-├── build              # 3D-printing files, instructions and BoM to construct the hardware    
-├── docs               # Project development and conference paper documentation 
-├── src                # Code for the webapp and controller firmware    
-├── testing            # Files from testing the High-Tech Fidget Spinner 
-├── tools              # Files to select approrpriate stepper motors 
+├── build/              # 3D-printing files, instructions and BoM to construct the hardware    
+├── docs/               # Project development and conference paper documentation 
+├── src/                # Code for the webapp and controller firmware    
+├── testing/            # Files from testing the High-Tech Fidget Spinner 
+├── tools/              # Files to select approrpriate stepper motors 
 ├── LICENSE.md         
 └── README.md           
 ```
