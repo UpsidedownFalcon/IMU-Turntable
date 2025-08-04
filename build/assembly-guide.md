@@ -5,9 +5,9 @@ To have a functioning High-Tech Fidget Spinner, there are three high-level steps
 2) Electronic assembly 
 3) Flashing firmware 
 
-Completing these three steps may take anywhere between **2 - 4+ hours**. Before starting, please make sure you have all of the materials from [```/build/BoM.md```](/build/BoM.md) and the appropriate tools. 
+Completing these three steps may take anywhere between **2 - 4+ hours**. Before starting, please make sure you have all of the materials from [```/build/BoM.csv```](/build/BoM.csv) and the appropriate tools. 
 
-All of the 3D print files should be printed. Materials and print settings are outlined in [```/build/BoM.md```](/build/BoM.md). 
+All of the 3D print files should be printed. Materials and print settings are outlined in [```/build/BoM.csv```](/build/BoM.csv). 
 
 Let's begin! 
 

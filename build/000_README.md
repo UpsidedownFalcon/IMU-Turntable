@@ -6,7 +6,7 @@ This directory contains files and instructions to build the mechanical and elect
 ├── CAD/                       # Contains all of the required CAD files 
 ├── PCB/                       # Contains all of the required PCB files 
 ├── assembly-guide.md          # Assembly guide
-├── BoM.md                     # Bill of materials 
+├── BoM.csv                     # Bill of materials 
 └── README.md
 ```
 
@@ -29,12 +29,12 @@ This document explains how to complete the
 
 for the High-Tech fidget spinner. 
 
-## ```/build/BoM.md``` 
+## ```/build/BoM.csv``` 
 This document is the bill of materials for High-Tech Fidget Spinner. 
 
 ## Start building! 
 
 0) Familiarise yourself with [```/build/assembly-guide.md```](/build/assembly-guide.md) 
-1) Source the components from [```/build/BoM.md```](/build/BoM.md) 
+1) Source the components from [```/build/BoM.csv```](/build/BoM.csv) 
 2) Follow the instructions in [```/build/assembly-guide.md```](/build/assembly-guide.md) 
 3) Test and tweak! 
