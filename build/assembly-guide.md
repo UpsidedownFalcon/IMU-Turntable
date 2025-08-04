@@ -1,4 +1,4 @@
-# ASsembly Guide 
+# Assembly Guide 
 
 To have a functioning High-Tech Fidget Spinner, there are three high-level steps: 
 1) Mechanical assembly 
@@ -84,5 +84,15 @@ The mechanical assembly is split into the following assemblies:
 ![IMG_20250627_032512](https://github.com/user-attachments/assets/384d8a6e-a8f4-4395-af44-c2bd219dadad)
 
 ## Elelctronic assembly 
+Connect the Teensy 4.1, TMC2209 drivers, stepper motors and rotary encoders as shown by the schmatic below: 
+
+
+All of the components can be connected together on a large breadboard: 
+
+
+Or a custom PCB can be manufactured using the [GERBER](/build/PCB/GERBER/) files and the components can be soldered onto the PCB, following the board layout 
 
 ## Flashing firmware 
+1) Download and ensure [```/src/firmware/main/main.ino/```](/src/firmware/main/main.ino) is placed inside a directory called ```/main/``` 
+2) Open [```./main.ino/```](/src/firmware/main/main.ino) with the Arduino IDE 
+3) Follow [this guide](https://www.pjrc.com/teensy/tutorial.html) to flash the code the a Teensy 4.1 
