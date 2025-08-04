@@ -1,5 +1,7 @@
 # ```/docs/``` 
 
+This directory is full of documentation about the conference paper, a project development log and instrutions on how to use the High-Tech Fidget Spinner. 
+
 ```
 ├── acm-conference-paper/          # Files for https://doi.org/10.1145/3714394.3756256  
 ├── development-log/               # Contains rationale for design decisions 

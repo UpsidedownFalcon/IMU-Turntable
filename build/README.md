@@ -1,5 +1,7 @@
 # ```/build/``` 
 
+This directory contains files and instructions to build the mechanical and electronic parts of the High-Tech Fidget Spinner. 
+
 ```
 ├── CAD/                       # Contains all of the required CAD files 
 ├── PCB/                       # Contains all of the required PCB files 
