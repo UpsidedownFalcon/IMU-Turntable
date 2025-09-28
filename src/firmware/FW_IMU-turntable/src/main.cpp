@@ -4,8 +4,12 @@
 #include <SdFat.h> 
 
 // Testing flags 
+void sd_test_task(void* pv);
 static TaskHandle_t sdTestHandle = nullptr; // Keep a handle/flag so we don't start multiple tests at once 
-static const bool ENABLE_ACTIVE_HIGH = true; // set false if driver enable is active-LOW
+void stepper_test_task(void* pv);
+static TaskHandle_t stepperTestHandle = nullptr;
+void gimbal_3axis_test_task(void* pv); 
+static TaskHandle_t gimbal3TestHandle = nullptr;
 
 // Teensy 4.1: use built-in SD via SDIO (fast)
 static SdFat sd;
@@ -16,9 +20,10 @@ static const char*    kAtomTmp       = "/atom.tmp";              // temp file fo
 static const char*    kAtomLog       = "/atom.log";              // final name after rename
 
 // Stepper tests 
-static const int PIN_STEP = 2;   // <-- CHANGE to your STEP pin (must support PWM)
-static const int PIN_DIR  = 3;   // <-- CHANGE to your DIR pin (GPIO)
-static const int PIN_EN   = 4;   // <-- CHANGE to your ENABLE pin (GPIO)
+static const int PIN_STEP = 3;   // <-- CHANGE to your STEP pin (must support PWM)
+static const int PIN_DIR  = 4;   // <-- CHANGE to your DIR pin (GPIO)
+static const int PIN_EN   = 2;   // <-- CHANGE to your ENABLE pin (GPIO)
+static const bool ENABLE_ACTIVE_HIGH = false; // set false if driver enable is active-LOW 
 
 // -------------------------
 // Task: Blink the built-in LED
@@ -289,15 +294,6 @@ void sd_test_task(void* pv) {
 // -------------------------
 void serial_task(void *pvParameters)
 {
-  // Serial.begin(115200);
-  // // Wait for Serial Monitor to open (optional)
-  // while (!Serial && millis() < 5000) { }
-
-  // for (;;)
-  // {
-  //   Serial.println("Heartbeat: FreeRTOS is running on Teensy 4.1!");
-  //   vTaskDelay(pdMS_TO_TICKS(1000)); // Print once per second
-  // }
   Serial.begin(115200);
   // Optional: wait up to 5s for the monitor to open
   unsigned long start = millis();
@@ -306,7 +302,8 @@ void serial_task(void *pvParameters)
   Serial.println("\n[CLI] Ready. Commands:");
   Serial.println("  h = help");
   Serial.println("  t = run SD test (mount, speed, CRC, atomic rename)");
-  Serial.println("");
+  Serial.println("  m = run Stepper test (enable, DIR sweep, STEP freq sweep)");
+  Serial.println("  g = run 3-axis 0↔90° simultaneous test");
 
   for (;;)
   {
@@ -325,6 +322,8 @@ void serial_task(void *pvParameters)
           Serial.println("[CLI] Commands:");
           Serial.println("  h = help");
           Serial.println("  t = run SD test");
+          Serial.println("  m = run Stepper test"); 
+          Serial.println("  g = run 3-axis 0↔90° simultaneous test");
           break;
 
         case 't':
@@ -333,11 +332,25 @@ void serial_task(void *pvParameters)
           {
             BaseType_t ok = xTaskCreate(sd_test_task, "SDTest", 4096, NULL, 1, &sdTestHandle);
             if (ok == pdPASS) Serial.println("[CLI] SD test started…");
-            else              Serial.println("[CLI][ERR] Couldn't start SD test (out of memory?)");
+            else              Serial.println("[CLI][ERR] Couldn't start SD test (stack/memory?)");
           }
           else
           {
             Serial.println("[CLI] SD test is already running.");
+          }
+          break;
+
+        case 'm':
+        case 'M':
+          if (stepperTestHandle == nullptr)
+          {
+            BaseType_t ok = xTaskCreate(stepper_test_task, "MotorTest", 2048, NULL, 2, &stepperTestHandle);
+            if (ok == pdPASS) Serial.println("[CLI] Stepper test started…");
+            else              Serial.println("[CLI][ERR] Couldn't start Stepper test (stack/memory?)");
+          }
+          else
+          {
+            Serial.println("[CLI] Stepper test is already running.");
           }
           break;
 
@@ -346,20 +359,265 @@ void serial_task(void *pvParameters)
           Serial.write((char)c);
           Serial.println("  (press 'h' for help)");
           break;
+
+        case 'g':
+        case 'G':
+          if (gimbal3TestHandle == nullptr) {
+            BaseType_t ok = xTaskCreate(gimbal_3axis_test_task, "Gimbal3", 2048, NULL, 2, &gimbal3TestHandle);
+            if (ok == pdPASS) Serial.println("[CLI] 3-axis 0↔90° test started…");
+            else              Serial.println("[CLI][ERR] Couldn't start 3-axis test (stack/memory?)");
+          } else {
+            Serial.println("[CLI] 3-axis test already running.");
+          }
+          break;
       }
     }
 
-    // When the SD task ends, it should call vTaskDelete(NULL);
-    // we can clear our handle here if it has finished.
-    if (sdTestHandle != nullptr && eTaskGetState(sdTestHandle) == eDeleted)
-    {
+    // When tasks end, they call vTaskDelete(NULL). We detect and clear handles.
+    if (sdTestHandle && eTaskGetState(sdTestHandle) == eDeleted) {
       sdTestHandle = nullptr;
       Serial.println("[CLI] SD test finished.");
+    }
+    if (stepperTestHandle && eTaskGetState(stepperTestHandle) == eDeleted) {
+      stepperTestHandle = nullptr;
+      Serial.println("[CLI] Stepper test finished.");
+    }
+    if (gimbal3TestHandle && eTaskGetState(gimbal3TestHandle) == eDeleted) {
+      gimbal3TestHandle = nullptr;
+      Serial.println("[CLI] 3-axis test finished.");
     }
 
     vTaskDelay(pdMS_TO_TICKS(10)); // Be nice to the CPU/USB
   }
 }
+
+
+// -------------------------
+// Task: Stepper test
+// -------------------------
+// Helper: drive ENABLE according to polarity
+static inline void driver_enable(bool on) {
+  if (ENABLE_ACTIVE_HIGH) {
+    digitalWrite(PIN_EN, on ? HIGH : LOW);
+  } else {
+    digitalWrite(PIN_EN, on ? LOW : HIGH);
+  }
+}
+
+// Helper: start/stop STEP pulses at given frequency
+// Duty = 50% so each period produces 2 edges (1 step per rising edge is fine).
+static void step_pwm_start(uint32_t freq_hz) {
+  // Set frequency first, then duty. Duty uses 8-bit scale by default.
+  analogWriteFrequency(PIN_STEP, freq_hz);
+  analogWrite(PIN_STEP, 128);  // ~50% duty (range 0..255)
+}
+static void step_pwm_stop() {
+  analogWrite(PIN_STEP, 0);    // duty=0 -> output low (no pulses)
+}
+
+// The frequency sweep you want to test (Hz). Adjust as you like.
+static const uint32_t kFreqList[] = { 10, 25, 50, 100, 250, 500, 1000, 2000, 5000, 10000 };
+static const size_t   kFreqCount  = sizeof(kFreqList)/sizeof(kFreqList[0]);
+
+// How long to run at each speed (ms)
+static const uint32_t kRunMsPerStep = 1500;
+
+// Minimal “are we e-stopped?” hook (placeholder).
+// Replace this with your real E-stop read whenever you wire it into firmware.
+static inline bool estop_active() {
+  // e.g., read a pin: return digitalRead(PIN_ESTOP) == ESTOP_ACTIVE_LEVEL;
+  return false;
+}
+
+void stepper_test_task(void* pv) {
+  (void)pv;
+  Serial.println("\n[MOTOR] === Stepper motor output test starting (single axis) ===");
+
+  // --- Pin init ---
+  pinMode(PIN_STEP, OUTPUT);
+  pinMode(PIN_DIR,  OUTPUT);
+  pinMode(PIN_EN,   OUTPUT);
+
+  // Put outputs in a safe idle state
+  step_pwm_stop();
+  digitalWrite(PIN_DIR, LOW);     // initial direction (LOW)
+  driver_enable(false);
+
+  // Small pause to settle
+  vTaskDelay(pdMS_TO_TICKS(100));
+
+  // --- Phase A: Direction LOW, sweep up the frequency list ---
+  Serial.println("[MOTOR] Enable driver (phase A), DIR=LOW");
+  driver_enable(true);
+  // DIR setup time before first step pulses
+  vTaskDelay(pdMS_TO_TICKS(1));   // 1 ms > 10 us requirement
+
+  for (size_t i = 0; i < kFreqCount; ++i) {
+    if (estop_active()) { Serial.println("[MOTOR][ABORT] E-STOP active."); break; }
+    uint32_t f = kFreqList[i];
+    Serial.printf("[MOTOR] Run at %lu Hz for %lu ms\n", (unsigned long)f, (unsigned long)kRunMsPerStep);
+    step_pwm_start(f);
+    vTaskDelay(pdMS_TO_TICKS(kRunMsPerStep));
+  }
+
+  // Stop pulses before changing direction
+  step_pwm_stop();
+  vTaskDelay(pdMS_TO_TICKS(50));
+
+  // --- Phase B: Direction HIGH, sweep again ---
+  Serial.println("[MOTOR] Change DIR=HIGH, re-sweep");
+  digitalWrite(PIN_DIR, HIGH);
+  vTaskDelay(pdMS_TO_TICKS(1));   // DIR setup time before next pulses
+
+  for (size_t i = 0; i < kFreqCount; ++i) {
+    if (estop_active()) { Serial.println("[MOTOR][ABORT] E-STOP active."); break; }
+    uint32_t f = kFreqList[i];
+    Serial.printf("[MOTOR] Run at %lu Hz for %lu ms\n", (unsigned long)f, (unsigned long)kRunMsPerStep);
+    step_pwm_start(f);
+    vTaskDelay(pdMS_TO_TICKS(kRunMsPerStep));
+  }
+
+  // --- Done: disable outputs ---
+  step_pwm_stop();
+  driver_enable(false);
+  Serial.println("[MOTOR] Test complete. Driver disabled, STEP idle low.");
+
+  // Mark task finished for CLI bookkeeping
+  stepperTestHandle = nullptr;
+  vTaskDelete(NULL);
+}
+
+// -------------------------
+// Task: Gimbal 3 axis test 
+// -------------------------
+struct AxisCfg {
+  int pin_step;               // PWM-capable pin
+  int pin_dir;                // GPIO
+  int pin_en;                 // GPIO
+  bool enable_active_high;    // set false if ENABLE is active-LOW
+  // Mechanics:
+  uint16_t full_steps_per_rev;  // e.g., 200 for a 1.8° stepper
+  uint16_t microsteps;          // e.g., 16 for 1/16
+  float    gear_ratio;          // e.g., 1.0 if direct, 5.0 if 5:1 gearbox
+};
+
+// === EDIT THESE FOR YOUR THREE AXES ===
+static AxisCfg AX[3] = {
+  //   STEP  DIR   EN   EN_POL   steps  µsteps  gear
+  {    3,    4,    2,   false,     200,    8,   1.0f }, // X Axis
+  {    6,    5,    9,   false,     200,    8,   1.0f }, // Y Axis 
+  {    31,    32,   30,   false,     200,    8,   1.0f }, // Z Axis 
+};
+
+// Test parameters (tune if needed)
+static const float    MAX_DEG         = 90.0f;   // do not exceed 90°
+static const uint32_t STEP_FREQ_HZ    = 1200;    // common step rate for all axes
+static const uint32_t DIR_SETUP_US    = 1000;    // 1 ms gap before/after DIR change
+static const uint32_t SETTLE_MS       = 100;     // initial settle after enables
+
+// Helpers
+static inline void drv_enable(const AxisCfg& a, bool on) {
+  digitalWrite(a.pin_en, (a.enable_active_high ? (on ? HIGH : LOW)
+                                               : (on ? LOW  : HIGH)));
+}
+static inline void step_start_pwm(const AxisCfg& a, uint32_t freq_hz) {
+  analogWriteFrequency(a.pin_step, freq_hz);
+  analogWrite(a.pin_step, 128); // ~50% duty
+}
+static inline void step_stop_pwm(const AxisCfg& a) {
+  analogWrite(a.pin_step, 0);   // idle low
+}
+static inline uint32_t steps_for_degrees(const AxisCfg& a, float deg) {
+  // steps = full_steps_per_rev * microsteps * gear_ratio * (deg / 360)
+  const float steps = (float)a.full_steps_per_rev * (float)a.microsteps * a.gear_ratio * (deg / 360.0f);
+  return (uint32_t)(steps + 0.5f); // round to nearest
+}
+
+// Start all axes towards target (dir), then stop each when its time is up
+static void move_all_axes_timed(bool to_positive_limit) {
+  // Direction per axis
+  for (int i = 0; i < 3; ++i) {
+    digitalWrite(AX[i].pin_dir, to_positive_limit ? HIGH : LOW);
+  }
+  // Respect DIR setup time
+  delayMicroseconds(DIR_SETUP_US);
+
+  // Compute durations from steps and common frequency
+  uint32_t now_us = micros();
+  bool active[3] = {false, false, false};
+  uint32_t stop_at_us[3] = {0,0,0};
+
+  for (int i = 0; i < 3; ++i) {
+    const uint32_t steps = steps_for_degrees(AX[i], MAX_DEG); // 90°
+    const float seconds  = (float)steps / (float)STEP_FREQ_HZ;
+    const uint32_t dur_us = (uint32_t)(seconds * 1e6f + 0.5f);
+    stop_at_us[i] = now_us + dur_us;
+
+    step_start_pwm(AX[i], STEP_FREQ_HZ);
+    active[i] = true;
+  }
+
+  // Supervisory loop: stop each axis when its timer elapses
+  for (;;) {
+    bool any = false;
+    uint32_t t = micros();
+    for (int i = 0; i < 3; ++i) {
+      if (active[i] && (int32_t)(t - stop_at_us[i]) >= 0) {
+        step_stop_pwm(AX[i]);
+        active[i] = false;
+      }
+      any |= active[i];
+    }
+    if (!any) break;
+    // Be nice to USB/RTOS
+    vTaskDelay(pdMS_TO_TICKS(1));
+  }
+}
+
+void gimbal_3axis_test_task(void* pv) {
+  (void)pv;
+  Serial.println("\n[GIMBAL] === 3-axis 0↔90° simultaneous test ===");
+  Serial.println("[GIMBAL] Ensure the gimbal is at 0° on all axes before starting!");
+  Serial.printf("[GIMBAL] Using %.0f° limit and %lu steps/s common rate.\n",
+                (double)MAX_DEG, (unsigned long)STEP_FREQ_HZ);
+
+  // Pin init
+  for (int i = 0; i < 3; ++i) {
+    pinMode(AX[i].pin_step, OUTPUT);
+    pinMode(AX[i].pin_dir,  OUTPUT);
+    pinMode(AX[i].pin_en,   OUTPUT);
+    step_stop_pwm(AX[i]);
+    digitalWrite(AX[i].pin_dir, LOW); // define LOW as "toward 0°" conventionally
+  }
+
+  // Enable all drivers
+  for (int i = 0; i < 3; ++i) drv_enable(AX[i], true);
+  vTaskDelay(pdMS_TO_TICKS(SETTLE_MS));
+
+  // ---- Phase A: move from 0° to +90° simultaneously ----
+  Serial.println("[GIMBAL] Phase A: 0° → +90° (all axes)");
+  move_all_axes_timed(/*to_positive_limit=*/true);
+
+  // Small idle gap
+  for (int i = 0; i < 3; ++i) step_stop_pwm(AX[i]);
+  delayMicroseconds(DIR_SETUP_US);
+
+  // ---- Phase B: move from +90° back to 0° simultaneously ----
+  Serial.println("[GIMBAL] Phase B: +90° → 0° (all axes)");
+  move_all_axes_timed(/*to_positive_limit=*/false);
+
+  // Disable all drivers, stop STEP
+  for (int i = 0; i < 3; ++i) {
+    step_stop_pwm(AX[i]);
+    drv_enable(AX[i], false);
+  }
+  Serial.println("[GIMBAL] Test complete. Drivers disabled.");
+
+  gimbal3TestHandle = nullptr;
+  vTaskDelete(NULL);
+}
+
+
 
 // -------------------------
 // Arduino setup() — create tasks and start scheduler
