@@ -3,17 +3,22 @@
 #include <task.h>          // Task creation and vTaskDelay
 #include <SdFat.h> 
 
-// Globals 
+// Testing flags 
 static TaskHandle_t sdTestHandle = nullptr; // Keep a handle/flag so we don't start multiple tests at once 
+static const bool ENABLE_ACTIVE_HIGH = true; // set false if driver enable is active-LOW
 
 // Teensy 4.1: use built-in SD via SDIO (fast)
 static SdFat sd;
-
 static const uint32_t kTestSizeBytes = 32UL * 1024UL * 1024UL;   // 32 MB
 static const uint32_t kBlockSize     = 16UL * 1024UL;            // 16 KB blocks
 static const char*    kSpeedFile     = "/speed.bin";             // test data file
 static const char*    kAtomTmp       = "/atom.tmp";              // temp file for atomicity
 static const char*    kAtomLog       = "/atom.log";              // final name after rename
+
+// Stepper tests 
+static const int PIN_STEP = 2;   // <-- CHANGE to your STEP pin (must support PWM)
+static const int PIN_DIR  = 3;   // <-- CHANGE to your DIR pin (GPIO)
+static const int PIN_EN   = 4;   // <-- CHANGE to your ENABLE pin (GPIO)
 
 // -------------------------
 // Task: Blink the built-in LED
