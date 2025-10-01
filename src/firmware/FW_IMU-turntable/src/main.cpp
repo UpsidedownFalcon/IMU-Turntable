@@ -10,6 +10,11 @@ void stepper_test_task(void* pv);
 static TaskHandle_t stepperTestHandle = nullptr;
 void gimbal_3axis_test_task(void* pv); 
 static TaskHandle_t gimbal3TestHandle = nullptr;
+void encoder_test_task(void* pv);
+static TaskHandle_t encTestHandle = nullptr; 
+void encoder_logger_task(void* pv);
+static TaskHandle_t g_loggerTaskHandle = nullptr;
+
 
 // Teensy 4.1: use built-in SD via SDIO (fast)
 static SdFat sd;
@@ -289,107 +294,6 @@ void sd_test_task(void* pv) {
   vTaskDelete(NULL);
 }
 
-// -------------------------
-// Task: Print heartbeat message over USB Serial
-// -------------------------
-void serial_task(void *pvParameters)
-{
-  Serial.begin(115200);
-  // Optional: wait up to 5s for the monitor to open
-  unsigned long start = millis();
-  while (!Serial && (millis() - start) < 5000) { vTaskDelay(pdMS_TO_TICKS(10)); }
-
-  Serial.println("\n[CLI] Ready. Commands:");
-  Serial.println("  h = help");
-  Serial.println("  t = run SD test (mount, speed, CRC, atomic rename)");
-  Serial.println("  m = run Stepper test (enable, DIR sweep, STEP freq sweep)");
-  Serial.println("  g = run 3-axis 0↔90° simultaneous test");
-
-  for (;;)
-  {
-    // Non-blocking read of any incoming byte
-    if (Serial.available() > 0)
-    {
-      int c = Serial.read();
-
-      // Ignore line endings from the monitor
-      if (c == '\r' || c == '\n') continue;
-
-      switch (c)
-      {
-        case 'h':
-        case 'H':
-          Serial.println("[CLI] Commands:");
-          Serial.println("  h = help");
-          Serial.println("  t = run SD test");
-          Serial.println("  m = run Stepper test"); 
-          Serial.println("  g = run 3-axis 0↔90° simultaneous test");
-          break;
-
-        case 't':
-        case 'T':
-          if (sdTestHandle == nullptr)
-          {
-            BaseType_t ok = xTaskCreate(sd_test_task, "SDTest", 4096, NULL, 1, &sdTestHandle);
-            if (ok == pdPASS) Serial.println("[CLI] SD test started…");
-            else              Serial.println("[CLI][ERR] Couldn't start SD test (stack/memory?)");
-          }
-          else
-          {
-            Serial.println("[CLI] SD test is already running.");
-          }
-          break;
-
-        case 'm':
-        case 'M':
-          if (stepperTestHandle == nullptr)
-          {
-            BaseType_t ok = xTaskCreate(stepper_test_task, "MotorTest", 2048, NULL, 2, &stepperTestHandle);
-            if (ok == pdPASS) Serial.println("[CLI] Stepper test started…");
-            else              Serial.println("[CLI][ERR] Couldn't start Stepper test (stack/memory?)");
-          }
-          else
-          {
-            Serial.println("[CLI] Stepper test is already running.");
-          }
-          break;
-
-        default:
-          Serial.print("[CLI] Unknown key: ");
-          Serial.write((char)c);
-          Serial.println("  (press 'h' for help)");
-          break;
-
-        case 'g':
-        case 'G':
-          if (gimbal3TestHandle == nullptr) {
-            BaseType_t ok = xTaskCreate(gimbal_3axis_test_task, "Gimbal3", 2048, NULL, 2, &gimbal3TestHandle);
-            if (ok == pdPASS) Serial.println("[CLI] 3-axis 0↔90° test started…");
-            else              Serial.println("[CLI][ERR] Couldn't start 3-axis test (stack/memory?)");
-          } else {
-            Serial.println("[CLI] 3-axis test already running.");
-          }
-          break;
-      }
-    }
-
-    // When tasks end, they call vTaskDelete(NULL). We detect and clear handles.
-    if (sdTestHandle && eTaskGetState(sdTestHandle) == eDeleted) {
-      sdTestHandle = nullptr;
-      Serial.println("[CLI] SD test finished.");
-    }
-    if (stepperTestHandle && eTaskGetState(stepperTestHandle) == eDeleted) {
-      stepperTestHandle = nullptr;
-      Serial.println("[CLI] Stepper test finished.");
-    }
-    if (gimbal3TestHandle && eTaskGetState(gimbal3TestHandle) == eDeleted) {
-      gimbal3TestHandle = nullptr;
-      Serial.println("[CLI] 3-axis test finished.");
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(10)); // Be nice to the CPU/USB
-  }
-}
 
 
 // -------------------------
@@ -506,14 +410,14 @@ static AxisCfg AX[3] = {
   //   STEP  DIR   EN   EN_POL   steps  µsteps  gear
   {    3,    4,    2,   false,     200,    8,   1.0f }, // X Axis
   {    6,    5,    9,   false,     200,    8,   1.0f }, // Y Axis 
-  {    31,    32,   30,   false,     200,    8,   1.0f }, // Z Axis 
+  {    29,    32,   30,   false,     200,    8,   1.0f }, // Z Axis 
 };
 
 // Test parameters (tune if needed)
 static const float    MAX_DEG         = 90.0f;   // do not exceed 90°
-static const uint32_t STEP_FREQ_HZ    = 1200;    // common step rate for all axes
+static const uint32_t STEP_FREQ_HZ    = 200;    // common step rate for all axes
 static const uint32_t DIR_SETUP_US    = 1000;    // 1 ms gap before/after DIR change
-static const uint32_t SETTLE_MS       = 100;     // initial settle after enables
+static const uint32_t SETTLE_MS       = 100;     // initial settle after enables 
 
 // Helpers
 static inline void drv_enable(const AxisCfg& a, bool on) {
@@ -615,6 +519,487 @@ void gimbal_3axis_test_task(void* pv) {
 
   gimbal3TestHandle = nullptr;
   vTaskDelete(NULL);
+} 
+
+// -------------------------
+// Task: Rotary encoder test 
+// -------------------------
+// ===================== 3x Quadrature Encoder (no library) ====================
+// Configure pins per axis (A, B, optional Z). Use Teensy digital pins that can
+// be used with attachInterrupt (most can).
+struct EncCfg {
+  int pinA;
+  int pinB;
+  int pinZ;       // set to -1 if you don't have index wired
+  bool usePullup; // true if you want INPUT_PULLUP (else external pullups already present)
+  uint16_t ppr;   // pulses per revolution (electrical cycles/rev). Your part: 600
+  float gear;     // gear ratio between motor shaft and joint. 1.0 if direct.
+};
+
+// === EDIT THESE to match your wiring ===
+static EncCfg ENC[3] = {
+  //   A   B    Z    PULLUP  PPR   GEAR
+  {   22, 21,  -1,   false,  600,  1.0f }, // Axis 0
+  {   17, 16,  -1,   false,  600,  1.0f }, // Axis 1
+  {   40, 39,  -1,   false,  600,  1.0f }, // Axis 2
+};
+
+// Internal state per encoder
+struct EncState {
+  volatile int32_t  count = 0;  // 4x counts (A/B both edges)
+  volatile uint8_t  last  = 0;  // last (A<<1|B)
+  volatile uint32_t errs  = 0;  // illegal transitions
+  volatile uint32_t zhits = 0;  // index hits (if Z wired)
+};
+static EncState ES[3];
+
+// Lookup table for 4-bit transition (prev2bits<<2 | curr2bits):
+// +1, -1,  0, or error (we count errors separately, treat as 0)
+static inline int8_t quad_delta(uint8_t prev2, uint8_t curr2) {
+  static const int8_t LUT[16] = {
+    /*00→00*/  0, /*00→01*/ +1, /*00→10*/ -1, /*00→11*/  0,
+    /*01→00*/ -1, /*01→01*/  0, /*01→10*/  0, /*01→11*/ +1,
+    /*10→00*/ +1, /*10→01*/  0, /*10→10*/  0, /*10→11*/ -1,
+    /*11→00*/  0, /*11→01*/ -1, /*11→10*/ +1, /*11→11*/  0
+  };
+  return LUT[(prev2 << 2) | curr2];
+}
+
+// We’ll share one ISR body for each axis using lambda-like wrappers
+static void enc_isr_body(int idx) {
+  const int a = digitalReadFast(ENC[idx].pinA);
+  const int b = digitalReadFast(ENC[idx].pinB);
+  const uint8_t curr = (uint8_t)((a << 1) | b);
+  const uint8_t prev = ES[idx].last;
+  ES[idx].last = curr;
+
+  const int8_t d = quad_delta(prev, curr);
+  if      (d ==  1) ES[idx].count++;
+  else if (d == -1) ES[idx].count--;
+  else if (d ==  0) { /* no change (bounce or same state) */ }
+  else               { ES[idx].errs++; } // (we never actually get here with this LUT)
+}
+
+static void enc0_isr() { enc_isr_body(0); }
+static void enc1_isr() { enc_isr_body(1); }
+static void enc2_isr() { enc_isr_body(2); }
+
+static void z_isr_body(int idx) { ES[idx].zhits++; }
+static void z0_isr() { z_isr_body(0); }
+static void z1_isr() { z_isr_body(1); }
+static void z2_isr() { z_isr_body(2); }
+
+// Convert counts to joint degrees (counts are 4x of PPR)
+static inline float counts_to_deg(int idx, int32_t counts) {
+  const float cpr4 = (float)ENC[idx].ppr * 4.0f; // 4x decode
+  return (counts * 360.0f) / (cpr4 * ENC[idx].gear);
+}
+
+void encoder_test_task(void* pv) {
+  (void)pv;
+  Serial.println("\n[ENC] === Encoder test starting ===");
+  Serial.println("[ENC] Move each joint; you should see counts, deg, and velocity.");
+
+  // Pin init & attach interrupts
+  for (int i = 0; i < 3; ++i) {
+    pinMode(ENC[i].pinA, ENC[i].usePullup ? INPUT_PULLUP : INPUT);
+    pinMode(ENC[i].pinB, ENC[i].usePullup ? INPUT_PULLUP : INPUT);
+    if (ENC[i].pinZ >= 0) pinMode(ENC[i].pinZ, ENC[i].usePullup ? INPUT_PULLUP : INPUT);
+
+    // Initialize last state before enabling ISRs to avoid a bogus first delta
+    uint8_t curr = (digitalReadFast(ENC[i].pinA) << 1) | digitalReadFast(ENC[i].pinB);
+    ES[i].last = curr;
+
+    // Interrupts on both A and B edges for 4x counting
+    attachInterrupt(digitalPinToInterrupt(ENC[i].pinA), (i==0)?enc0_isr:(i==1)?enc1_isr:enc2_isr, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(ENC[i].pinB), (i==0)?enc0_isr:(i==1)?enc1_isr:enc2_isr, CHANGE);
+
+    if (ENC[i].pinZ >= 0) {
+      attachInterrupt(digitalPinToInterrupt(ENC[i].pinZ), (i==0)?z0_isr:(i==1)?z1_isr:z2_isr, RISING);
+    }
+  }
+
+  // Sampling for velocity
+  const uint32_t print_every_ms = 200;
+  int32_t prevCounts[3] = { ES[0].count, ES[1].count, ES[2].count };
+  uint32_t t0 = millis();
+
+  for (;;) {
+    vTaskDelay(pdMS_TO_TICKS(print_every_ms));
+    uint32_t t1 = millis();
+    float dt_s = (t1 - t0) / 1000.0f;
+    t0 = t1;
+
+    for (int i = 0; i < 3; ++i) {
+      int32_t c = ES[i].count;                     // atomic enough on ARM for 32-bit reads
+      int32_t dc = c - prevCounts[i];
+      prevCounts[i] = c;
+
+      // Position in degrees and speed in deg/s
+      float pos_deg = counts_to_deg(i, c);
+      float vel_dps = counts_to_deg(i, dc) / dt_s;
+
+      Serial.printf("[ENC%d] cnt=%ld  deg=%.2f  vel=%.2f deg/s  errs=%lu  z=%lu\n",
+                    i, (long)c, (double)pos_deg, (double)vel_dps,
+                    (unsigned long)ES[i].errs, (unsigned long)ES[i].zhits);
+    }
+    Serial.println();
+  }
+} 
+
+// -------------------------
+// Task: Encoder to SD Card Logger 
+// -------------------------
+// --- Logging control & stats ---
+static volatile bool g_log_run = false;   // set true to start sampling & writing
+static volatile bool g_log_stop = false;  // request a graceful stop
+static volatile uint32_t g_log_drops = 0; // records dropped due to buffer full
+
+// --- Sampling rate (Hz) ---
+static const uint32_t LOG_HZ = 1000;   // 1 kHz sampling by default
+
+// --- Record format (binary) ---
+// Packed 4-byte aligned:  timestamp (us), enc0, enc1, enc2 (4 x int32_t)
+// Size = 16 bytes per record
+struct __attribute__((packed, aligned(4))) EncRecord {
+  uint32_t t_us;
+  int32_t  c0, c1, c2;
+};
+
+// --- Ring buffer ---
+static const uint32_t RB_CAP = 4096;           // capacity (power of two OK but not required)
+static EncRecord      RB[RB_CAP];              // storage
+static volatile uint32_t rb_head = 0;          // write index (ISR)
+static volatile uint32_t rb_tail = 0;          // read index (logger task)
+
+// --- IO scratch for batched writes ---
+static const uint32_t IO_CHUNK = 16 * 1024;    // 16 KB buffered writes
+static uint8_t*       g_io_buf = nullptr;
+
+// --- Sampling timer ---
+#include <IntervalTimer.h>
+static IntervalTimer  g_sampleTimer;
+
+// Forward decls (you already have ES[] from the encoder test)
+extern volatile int32_t ES_count0;  // if you *didn't* expose these, see note below
+extern volatile int32_t ES_count1;
+extern volatile int32_t ES_count2;
+// If your encoder code keeps counts in ES[3].count, we’ll reference them directly in the sampler block below.
+
+static inline uint32_t rb_free() {
+  uint32_t h = rb_head, t = rb_tail;
+  return (t + RB_CAP - h) % RB_CAP - 1; // one slot guard; returns max-1 in practice
+}
+
+static void sampler_isr() {
+  if (!g_log_run) return;
+
+  // Prepare record
+  EncRecord rec;
+  rec.t_us = micros();
+
+  // Read current counts (atomic 32-bit reads are OK on M7 if not torn; ISR runs with interrupts off)
+  // If your encoder state is ES[3].count, use those:
+  extern EncState ES[3];
+  rec.c0 = ES[0].count;
+  rec.c1 = ES[1].count;
+  rec.c2 = ES[2].count;
+
+  // Push into ring buffer
+  uint32_t h = rb_head;
+  uint32_t n = (h + 1) % RB_CAP;
+  if (n == rb_tail) {
+    // buffer full -> drop
+    g_log_drops++;
+    return;
+  }
+  RB[h] = rec;
+  rb_head = n;
+}
+
+// ===================== Logger task (consumer) =================================
+static const char* LOG_TMP = "/enc_log.tmp";
+static const char* LOG_BIN = "/enc_log.bin";
+
+static void rb_drain_to_buf(uint8_t* out, uint32_t out_cap, uint32_t& out_len) {
+  out_len = 0;
+  while (rb_tail != rb_head) {
+    if (out_len + sizeof(EncRecord) > out_cap) break;
+    *((EncRecord*)(out + out_len)) = RB[rb_tail];
+    out_len += sizeof(EncRecord);
+    rb_tail = (rb_tail + 1) % RB_CAP;
+  }
+}
+
+void encoder_logger_task(void* pv) {
+  (void)pv;
+  Serial.println("\n[LOG] Encoder logger starting…");
+
+  // Mount SD (if not mounted yet). If you already mounted earlier, this should still succeed.
+  if (!sd.begin(SdioConfig(FIFO_SDIO))) {
+    Serial.println("[LOG][FAIL] sd.begin() — insert/format SD?");
+    g_loggerTaskHandle = nullptr;
+    vTaskDelete(NULL);
+    return;
+  }
+
+  // Clean old artifacts
+  if (sd.exists(LOG_TMP)) sd.remove(LOG_TMP);
+
+  // Open temp file and write a tiny header for reference
+  FsFile f;
+  if (!f.open(LOG_TMP, O_RDWR | O_CREAT | O_TRUNC)) {
+    Serial.println("[LOG][FAIL] open(tmp)");
+    g_loggerTaskHandle = nullptr;
+    vTaskDelete(NULL);
+    return;
+  }
+
+  // Optional: simple ASCII header at start of file (fixed 128 bytes)
+  const char* header = "ENCLOG v1 | rec= {t_us,uint32; c0,int32; c1,int32; c2,int32} | sample_hz=1000\n";
+  f.write(header, strlen(header));
+
+  // Allocate IO buffer
+  g_io_buf = (uint8_t*)malloc(IO_CHUNK);
+  if (!g_io_buf) {
+    Serial.println("[LOG][FAIL] malloc IO_CHUNK");
+    f.close();
+    sd.remove(LOG_TMP);
+    g_loggerTaskHandle = nullptr;
+    vTaskDelete(NULL);
+    return;
+  }
+
+  // Start sampling timer
+  rb_head = rb_tail = 0;
+  g_log_drops = 0;
+  g_log_run   = true;
+  g_log_stop  = false;
+  g_sampleTimer.begin(sampler_isr, 1000000UL / LOG_HZ); // period in us
+
+  Serial.println("[LOG] Logging… press 's' to stop");
+
+  // Drain loop
+  uint32_t flush_t0 = millis();
+  for (;;) {
+    // Drain any accumulated records to the IO buffer
+    uint32_t chunk_len = 0;
+    rb_drain_to_buf(g_io_buf, IO_CHUNK, chunk_len);
+
+    if (chunk_len) {
+      int wrote = f.write(g_io_buf, chunk_len);
+      if (wrote != (int)chunk_len) {
+        Serial.println("[LOG][FAIL] write()");
+        break;
+      }
+    }
+
+    // Flush to card every ~250 ms to reduce risk of data loss
+    uint32_t now = millis();
+    if (now - flush_t0 >= 250) {
+      f.sync();
+      flush_t0 = now;
+    }
+
+    // Graceful stop when requested and buffer is empty
+    if (g_log_stop && rb_head == rb_tail) {
+      break;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+
+  // Stop sampling
+  g_sampleTimer.end();
+  g_log_run = false;
+
+  // Final drain
+  uint32_t tail_len = 0;
+  rb_drain_to_buf(g_io_buf, IO_CHUNK, tail_len);
+  if (tail_len) f.write(g_io_buf, tail_len);
+
+  // Close and atomically promote
+  f.sync();
+  f.close();
+  if (sd.exists(LOG_BIN)) sd.remove(LOG_BIN);
+  if (!sd.rename(LOG_TMP, LOG_BIN)) {
+    Serial.println("[LOG][WARN] rename(tmp->bin) failed; leaving .tmp");
+  }
+
+  // Report
+  Serial.printf("[LOG] Stopped. Drops=%lu  File=%s\n",
+                (unsigned long)g_log_drops, sd.exists(LOG_BIN) ? LOG_BIN : LOG_TMP);
+
+  free(g_io_buf);
+  g_io_buf = nullptr;
+  g_loggerTaskHandle = nullptr;
+  vTaskDelete(NULL);
+}
+
+
+// -------------------------
+// Task: Print heartbeat message over USB Serial
+// -------------------------
+void serial_task(void *pvParameters)
+{
+  Serial.begin(115200);
+  // Optional: wait up to 5s for the monitor to open
+  unsigned long start = millis();
+  while (!Serial && (millis() - start) < 5000) { vTaskDelay(pdMS_TO_TICKS(10)); }
+
+  Serial.println("\n[CLI] Ready. Commands:");
+  Serial.println("  h = help");
+  Serial.println("  t = run SD test (mount, speed, CRC, atomic rename)");
+  Serial.println("  m = run Stepper test (enable, DIR sweep, STEP freq sweep)");
+  Serial.println("  g = run 3-axis 0↔90° simultaneous test"); 
+  Serial.println("  e = run encoder test"); 
+  Serial.println("  l = start encoder logging (binary, 1 kHz)");
+  Serial.println("  s = stop encoder logging");
+  Serial.println("  p = print logger stats");
+
+
+  for (;;)
+  {
+    // Non-blocking read of any incoming byte
+    if (Serial.available() > 0)
+    {
+      int c = Serial.read();
+
+      // Ignore line endings from the monitor
+      if (c == '\r' || c == '\n') continue;
+
+      switch (c)
+      {
+        case 'h':
+        case 'H':
+          Serial.println("[CLI] Commands:");
+          Serial.println("  h = help");
+          Serial.println("  t = run SD test");
+          Serial.println("  m = run Stepper test"); 
+          Serial.println("  g = run 3-axis 0↔90° simultaneous test"); 
+          Serial.println("  e = run encoder test"); 
+          Serial.println("  l = start encoder logging (binary, 1 kHz)");
+          Serial.println("  s = stop encoder logging");
+          Serial.println("  p = print logger stats");
+          break;
+
+        case 't':
+        case 'T':
+          if (sdTestHandle == nullptr)
+          {
+            BaseType_t ok = xTaskCreate(sd_test_task, "SDTest", 4096, NULL, 1, &sdTestHandle);
+            if (ok == pdPASS) Serial.println("[CLI] SD test started…");
+            else              Serial.println("[CLI][ERR] Couldn't start SD test (stack/memory?)");
+          }
+          else
+          {
+            Serial.println("[CLI] SD test is already running.");
+          }
+          break;
+
+        case 'm':
+        case 'M':
+          if (stepperTestHandle == nullptr)
+          {
+            BaseType_t ok = xTaskCreate(stepper_test_task, "MotorTest", 2048, NULL, 2, &stepperTestHandle);
+            if (ok == pdPASS) Serial.println("[CLI] Stepper test started…");
+            else              Serial.println("[CLI][ERR] Couldn't start Stepper test (stack/memory?)");
+          }
+          else
+          {
+            Serial.println("[CLI] Stepper test is already running.");
+          }
+          break;
+
+        default:
+          Serial.print("[CLI] Unknown key: ");
+          Serial.write((char)c);
+          Serial.println("  (press 'h' for help)");
+          break;
+
+        case 'g':
+        case 'G':
+          if (gimbal3TestHandle == nullptr) {
+            BaseType_t ok = xTaskCreate(gimbal_3axis_test_task, "Gimbal3", 2048, NULL, 2, &gimbal3TestHandle);
+            if (ok == pdPASS) Serial.println("[CLI] 3-axis 0↔90° test started…");
+            else              Serial.println("[CLI][ERR] Couldn't start 3-axis test (stack/memory?)");
+          } else {
+            Serial.println("[CLI] 3-axis test already running.");
+          }
+          break;
+
+        case 'e':
+        case 'E':
+          if (encTestHandle == nullptr) {
+            BaseType_t ok = xTaskCreate(encoder_test_task, "EncTest", 2048, NULL, 2, &encTestHandle);
+            if (ok == pdPASS) Serial.println("[CLI] Encoder test started…");
+            else              Serial.println("[CLI][ERR] Couldn't start Encoder test (stack/memory?)");
+          } else {
+            Serial.println("[CLI] Encoder test already running.");
+          }
+          break;
+        
+        case 'l':   // start logging
+        case 'L':
+          if (g_loggerTaskHandle == nullptr) {
+            // Avoid running SD speed test at the same time
+            if (sdTestHandle != nullptr) {
+              Serial.println("[CLI] SD speed test running; stop it before starting logger.");
+              break;
+            }
+            BaseType_t ok = xTaskCreate(encoder_logger_task, "EncLog", 4096, NULL, 2, &g_loggerTaskHandle);
+            if (ok == pdPASS) Serial.println("[CLI] Encoder logging started (1 kHz). File: enc_log.bin");
+            else              Serial.println("[CLI][ERR] Couldn't start logger (stack/memory?)");
+          } else {
+            Serial.println("[CLI] Logger already running.");
+          }
+          break;
+
+        case 's':   // stop logging
+        case 'S':
+          if (g_loggerTaskHandle != nullptr) {
+            g_log_stop = true;  // logger will stop after draining buffer
+            Serial.println("[CLI] Stop requested; waiting to flush…");
+          } else {
+            Serial.println("[CLI] Logger not running.");
+          }
+          break;
+
+        case 'p':   // print quick stats
+        case 'P':
+          Serial.printf("[CLI] drops=%lu  rb_head=%lu rb_tail=%lu  running=%d stop=%d\n",
+                        (unsigned long)g_log_drops,
+                        (unsigned long)rb_head, (unsigned long)rb_tail,
+                        (int)g_log_run, (int)g_log_stop);
+          break;
+      }
+    }
+
+    // When tasks end, they call vTaskDelete(NULL). We detect and clear handles.
+    if (sdTestHandle && eTaskGetState(sdTestHandle) == eDeleted) {
+      sdTestHandle = nullptr;
+      Serial.println("[CLI] SD test finished.");
+    }
+    if (stepperTestHandle && eTaskGetState(stepperTestHandle) == eDeleted) {
+      stepperTestHandle = nullptr;
+      Serial.println("[CLI] Stepper test finished.");
+    }
+    if (gimbal3TestHandle && eTaskGetState(gimbal3TestHandle) == eDeleted) {
+      gimbal3TestHandle = nullptr;
+      Serial.println("[CLI] 3-axis test finished.");
+    }
+    if (encTestHandle && eTaskGetState(encTestHandle) == eDeleted) {
+      encTestHandle = nullptr;
+      Serial.println("[CLI] Encoder test finished.");
+    }
+  if (g_loggerTaskHandle && eTaskGetState(g_loggerTaskHandle) == eDeleted) {
+    g_loggerTaskHandle = nullptr;
+    Serial.println("[CLI] Encoder logger finished.");
+  }
+
+
+    vTaskDelay(pdMS_TO_TICKS(10)); // Be nice to the CPU/USB
+  }
 }
 
 
