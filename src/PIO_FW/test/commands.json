@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "device": { "name": "Gimbal-Dev", "timebase_hz": 1000000 },
+
+  "pins": {
+    "axis": [
+      { "enable": 2,  "dir": 4,  "step": 3,  "invert_enable": false, "invert_dir": false, "step_active_high": true },
+      { "enable": 9,  "dir": 5,  "step": 6,  "invert_enable": false, "invert_dir": false, "step_active_high": true },
+      { "enable": 30, "dir": 32, "step": 29, "invert_enable": false, "invert_dir": false, "step_active_high": true }
+    ],
+    "encoders": [
+      { "a": 22, "b": 21, "index": -1 },
+      { "a": 17, "b": 16, "index": -1 },
+      { "a": 40, "b": 39, "index": -1 }
+    ],
+    "buttons": { "play_pause": 255, "reset": 255, "estop": 255 },
+    "leds":    { "status": 255, "progress_bar": [255,255,255,255,255] },
+    "sd_card_cs": 10
+  },
+
+  "stepper": {
+    "axes": [
+      { "steps_per_rev": 200, "microstep": 8, "max_speed_dps": 360.0, "max_accel_dps2": 1000.0, "step_pulse_us": 3 },
+      { "steps_per_rev": 200, "microstep": 8, "max_speed_dps": 360.0, "max_accel_dps2": 1000.0, "step_pulse_us": 3 },
+      { "steps_per_rev": 200, "microstep": 8, "max_speed_dps": 360.0, "max_accel_dps2": 1000.0, "step_pulse_us": 3 }
+    ],
+    "enable_active_low": true
+  },
+
+  "encoders": {
+    "axes": [
+      { "cpr": 600, "quad": 4, "units": "deg" },
+      { "cpr": 600, "quad": 4, "units": "deg" },
+      { "cpr": 600, "quad": 4, "units": "deg" }
+    ]
+  },
+
+  "safety": { "estop_latching": true, "debounce_ms": 20 },
+
+  "logging": {
+    "enabled": true,
+    "rate_hz": 200,
+    "binary": true
+  },
+
+  "ui": {
+    "trajectory_files": [
+      "/gimbal/trajectory_X.traj",
+      "/gimbal/trajectory_Y.traj",
+      "/gimbal/trajectory_Z.traj"
+    ],
+    "autoplay_on_insert": true
+  },
+
+  "telemetry": { "serial_baud": 115200, "live_stream": true }
+}
