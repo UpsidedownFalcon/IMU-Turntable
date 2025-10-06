@@ -269,7 +269,7 @@
       "plot": "C:/Users/bhavy/OneDrive/Documents/GitHub/IMU-Turntable/build/PCB/XY_slip-ring/XY_slip-ring_GERBER/",
       "pos_files": "",
       "specctra_dsn": "",
-      "step": "",
+      "step": "../../../../../../../Downloads/XY_slip-ring.step",
       "svg": "",
       "vrml": ""
     },
