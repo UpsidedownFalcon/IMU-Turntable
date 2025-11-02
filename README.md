@@ -1,4 +1,5 @@
-﻿# High-Tech Fidget Spinner: 3-Axis IMU Turntable 
+﻿# High-Tech Fidget Spinner V2: "Treexelator-PRO-T2000"
+
 
 Welcome! 
 
