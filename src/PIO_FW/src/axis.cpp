@@ -58,8 +58,8 @@ void axisScheduleSteps(int i, int32_t steps, uint32_t dt_us){
   axisSetDir(i, steps>0);
   int32_t n = abs(steps);
   // frequency = n / dt; period = dt / n; half-period = period/2 
-  const uint32_t min_half = max<uint32_t>(1, gCfg.stepper[i].step_pulse_us / 2);
-  uint32_t halfp = max<uint32_t>((uint32_t)min_half, (uint64_t)dt_us * 500ULL / (uint64_t)n);
+  const uint32_t min_half = max<uint32_t>(1u, gCfg.stepper[i].step_pulse_us / 2);
+  uint32_t halfp = max<uint32_t>((uint32_t)min_half, (uint32_t)(dt_us / (2u * (uint32_t)n))); 
   auto &A = gAxis[i];
   A.steps_remaining = n;
   A.half_period_us = halfp;

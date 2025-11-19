@@ -103,6 +103,12 @@ bool validateTrajectories(){
     // We accept axis_count==1 (preferred) OR ==3 (legacy); version==1
     if (hdr[4]!=1 /*version*/){ f.close(); return false; }
     f.close();
+
+    uint32_t sample_dt_us = *(uint32_t*)&hdr[8];
+    uint64_t total_samples = *(uint64_t*)&hdr[12];
+    uint32_t angle_scale   = *(uint32_t*)&hdr[20];
+    if (sample_dt_us == 0 || total_samples == 0 || angle_scale == 0) { f.close(); return false; }
+
   }
   return true;
 }

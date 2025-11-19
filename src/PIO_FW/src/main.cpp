@@ -70,6 +70,7 @@ void sdTask(void*){
   pinMode(gPins.leds.status, OUTPUT);
   setStatusLED(1); // show "working"
 
+  Serial.println("in sdTask()"); 
   blinkCode(1); // boot -> sdTask reached 
   vTaskDelay(pdMS_TO_TICKS(500)); // wait for SD 
 
@@ -95,18 +96,27 @@ void sdTask(void*){
   // Open each per-axis file
   traj_ok = true;
   for(int i=0;i<3;i++){
-    if (!plan[i].tr.open(gCfg.ui.trajectory_files[i]) || !plan[i].tr.ok()){ traj_ok=false; break; }
+    if (!plan[i].tr.open(gCfg.ui.trajectory_files[i]) || !plan[i].tr.ok()){ traj_ok=false; Serial.println("if failed"); break; }
     plan[i].tr.readHeader(plan[i].hdr);
     plan[i].dt_us = plan[i].hdr.sample_dt_us;
     plan[i].idx = 0;
     plan[i].done = (plan[i].hdr.total_samples==0);
+    Serial.println("if passed"); 
+    Serial.println(plan[i].tr.readHeader(plan[i].hdr)); 
   }
 
-  if (!traj_ok){ setStatusLED(1); vTaskSuspend(nullptr); }
+  if (!traj_ok){ Serial.println("trajedy not ok"); setStatusLED(1); vTaskSuspend(nullptr); }
 
   // Status LED "OK" (adapt level/polarity to your wiring)
   setStatusLED(0);
   Serial.println("SD card read"); 
+
+  FsFile f; if(!f.open("/gimbal/trajectory_X.traj", O_RDONLY)){ Serial.printf("HDR %s open FAIL\n", "/gimbal/trajectory_X.traj"); return; }
+  uint8_t hdr[64]; int r = f.read(hdr, sizeof(hdr));
+  Serial.printf("HDR %s: read=%d\n", "/gimbal/trajectory_X.traj", r);
+  for(int i=0;i<32;i++) Serial.printf("%02X ", hdr[i]); Serial.println();
+  f.close();
+
   vTaskSuspend(nullptr);
 }
 
@@ -246,6 +256,7 @@ void playbackTask(void*){
     telemetrySendProgress(overallProgressPct());
 
     if (all_done){
+      axisStopAll(); 
       gRunState = RunState::Idle; // finished
       continue;
     }
@@ -264,6 +275,20 @@ void setup(){
   pinMode(LED_BUILTIN, OUTPUT);
   ledOff(); 
 
+  delay(1000); 
+  
+  applyPinModes();
+  axisInit();
+
+  // hard-enable drivers with active-LOW polarity
+  axisEnableAll(true);
+
+  // move AXIS 2 (the one wired to EN=30, DIR=32, STEP=29)
+  axisSetDir(2, false);
+  axisScheduleSteps(2, 1500, 3000000);  // ~500 Hz for 3 s
+
+  delay(1000); 
+
 
   xTaskCreate(sdTask, "SD", 4096, nullptr, 3, &sdTaskHandle);
   xTaskCreate(uiTask, "UI", 2048, nullptr, 2, &uiTaskHandle);
@@ -271,7 +296,7 @@ void setup(){
   xTaskCreate(loggerTask, "Log", 4096, nullptr, 1, &logTaskHandle);
   xTaskCreate(playbackTask, "Play", 4096, nullptr, 2, &playTaskHandle);
 
-  vTaskStartScheduler();
+  // vTaskStartScheduler();
 }
 
 void loop(){ /* unused with FreeRTOS */ }

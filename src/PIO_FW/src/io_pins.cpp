@@ -3,16 +3,16 @@
 PinConfig gPins = {
   // axis
   {
-    {2,3,4,false,false,true},
-    {5,6,7,false,false,true},
-    {8,9,10,false,false,true}
+    {2,4,3,false,false,true},
+    {9,5,6,false,false,true},
+    {30,32,29,false,false,true}
   },
   // enc
   {
     {22,23,-1},{24,25,-1},{26,27,-1}
   },
-  // buttons
-  {30,31,32},
+  // buttons {30,31,32}
+  {0xFF,0xFF,0xFF}, 
   // leds
   {33,{34,35,36,37,38}},
   // sd

@@ -1,0 +1,14 @@
+{
+  "magic": "STP1",
+  "time_unit": "us",
+  "record_size_bytes": 5,
+  "fields": [
+    "dt_us",
+    "dir"
+  ],
+  "record_count": 1600,
+  "step_angle_deg": 1.8,
+  "microsteps": 8,
+  "steps_per_rev": 1600,
+  "description": "Each record defines time between consecutive rising edges; STEP high/low = dt/2."
+}
