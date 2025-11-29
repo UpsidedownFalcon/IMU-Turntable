@@ -37,3 +37,8 @@ Captain's Journal:
 
 20/11/2025: Started doing research on the tolorances we have for the mechanical parts and different manufacturning methods.
 
+23/11/2025: did more research about tolorances usign GD&T, started writing the report for manufacturing.
+
+22/11/2025: contacted DHL and RLS for products and shipment, made few calls with DHL, solved a problem with their system, RLS changed prices, asked them to understand if we can get our price diff back, (Note: no reply:( 
+
+26/11/2025: submitted the GD&T report to higher ups. 
