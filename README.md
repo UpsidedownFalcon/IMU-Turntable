@@ -42,3 +42,11 @@ Captain's Journal:
 22/11/2025: contacted DHL and RLS for products and shipment, made few calls with DHL, solved a problem with their system, RLS changed prices, asked them to understand if we can get our price diff back, (Note: no reply:( 
 
 26/11/2025: submitted the GD&T report to higher ups. 
+
+27/11/2025: started to do the manufacturing report about the types of manufacturing we can use and their prices.
+
+01/12/2025: finished doing the materials/manufacturing report, can be accessed in github.
+
+5/12/2025: started doing the 2nd and 3rd axes, the design is being done using fusion 360. 
+
+8/12/2025: finished the V1 of the desing, all ground plate, 1st axis, 2nd axis, 3rd axis, and the sensor plate is ready for 3d prinitng for prototyping. 3d printing is only for model and does not have the tolorances we need. 
