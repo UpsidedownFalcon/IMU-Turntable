@@ -51,6 +51,8 @@ Captain's Journal:
 
 8/12/2025: finished the V1 of the desing, all ground plate, 1st axis, 2nd axis, 3rd axis, and the sensor plate is ready for 3d prinitng for prototyping. 3d printing is only for model and does not have the tolorances we need. 
 
+10/12/2025: did some fine adjustment to the 3d design.
+
 Future Goals: finish modelling/prototyping by 20th of december, and then order the parts from JLC CNC from 7075 alum with 50 micron tolorance.
 Finish the products as soon as the CNC parts arrive,
 Write firmware for the treexelator for it to give the data we want in the format we want also being easy to read (GUI)
