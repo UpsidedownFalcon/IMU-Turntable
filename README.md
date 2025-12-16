@@ -53,6 +53,8 @@ Captain's Journal:
 
 10/12/2025: did some fine adjustment to the 3d design.
 
+12/12/2025: sliced the components: ground body and axis 1 to two pieces to be able to print them using bambulab x1c
+
 Future Goals: finish modelling/prototyping by 20th of december, and then order the parts from JLC CNC from 7075 alum with 50 micron tolorance.
 Finish the products as soon as the CNC parts arrive,
 Write firmware for the treexelator for it to give the data we want in the format we want also being easy to read (GUI)
