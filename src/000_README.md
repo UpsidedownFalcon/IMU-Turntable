@@ -10,7 +10,7 @@ This directory is where all of the code is found! There is a webapp UI where the
 
 ## ```/src/firmware/``` 
 - [```./main/main.ino```](/src/firmware/main/main.ino) is the code that should be flashed onto the controller board 
-- [```./test-scripts/](/src/firmware/test-scripts/) contains test code snippets 
+- [```./test-scripts/```](/src/firmware/test-scripts/) contains test code snippets 
 
 ## ```/src/webapp/``` 
 - [```./static/```](/src/webapp/static/) contains CSS and JS files for the webapp 
