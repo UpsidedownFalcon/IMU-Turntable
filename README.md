@@ -55,6 +55,20 @@ Captain's Journal:
 
 12/12/2025: sliced the components: ground body and axis 1 to two pieces to be able to print them using bambulab x1c
 
+15/12/2025: sent the 3d body files for printing.
+
+19/12/2025: did the first prototype. find the photo in the repository.
+
+20/12/2025: updated the design, fixed some faulty diameters, optimized encoder to ring distance, printed the ground body.
+
+21/12/2025: printed the new optimized design and put them together. made edits to the design for slip ring adjustment. 
+
+22/12/2025: finished the new prototype. its ready to be sent to a cnc manufacturer.
+
+
+
+
+
 Future Goals: finish modelling/prototyping by 20th of december, and then order the parts from JLC CNC from 7075 alum with 50 micron tolorance.
 Finish the products as soon as the CNC parts arrive,
 Write firmware for the treexelator for it to give the data we want in the format we want also being easy to read (GUI)
