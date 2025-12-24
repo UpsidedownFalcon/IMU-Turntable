@@ -65,7 +65,7 @@ Captain's Journal:
 
 22/12/2025: finished the new prototype. its ready to be sent to a cnc manufacturer.
 
-
+24/12/2025: edited the design again and produced 2d dxf files for GD&T, got a quote from jlc
 
 
 
