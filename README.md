@@ -67,6 +67,8 @@ Captain's Journal:
 
 24/12/2025: edited the design again and produced 2d dxf files for GD&T, got a quote from jlc
 
+24/12/2025-03/01/2026: had tens of emails with jlc cnc team and change the design more then 10 times because quote "it was too complex" in the words of jlc team. in the end after multiple iterations we got a quote of 3237.3 usd plus tax, the original quote was 1300usd. this is ridiculous. i have contacted jlc cnc team again and they just told me to change the design again which is frustrating. its awful to work with them. for the future person who is reading this: DO NOT WORK WİTH JLC CNC EVER. 
+
 
 
 Future Goals: finish modelling/prototyping by 20th of december, and then order the parts from JLC CNC from 7075 alum with 50 micron tolorance.
